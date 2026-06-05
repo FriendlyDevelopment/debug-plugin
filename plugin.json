@@ -1,0 +1,15 @@
+{
+	"name": "Friendly's Debug Plugin",
+	"version": "1.0",
+	"dependencies": [],
+	"requiredPermissions": [],
+	"optionalPermissions": [
+		"httpAccess"
+	],
+	"remoteID": 100000,
+	"remoteVersionID": 10000,
+	"remoteSourceHash": "Invalid",
+	"urls": {
+		"localhost": "http://localhost:8080/"
+	}
+}
