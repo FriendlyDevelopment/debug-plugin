@@ -39,32 +39,38 @@ local interfacePollHandler = function(event)
 	end
 end
 
-local npcAddedHandler = function(event)
-	if event.npcEntity.displayName == nil then
-		return
+local formatCoord = function(coord)
+	if coord == nil then
+		return "nil"
 	end
-	log(
-		formatStr(
-			"NPC added: {} with id {} of type {}",
-			event.npcEntity.displayName,
-			event.npcEntity.configID,
-			event.entityType
-		)
+
+	return formatStr("level={}, x={}, z={}", coord.level, coord.x, coord.z)
+end
+
+local formatNpcEvent = function(action, event)
+	local npc = event.npcEntity
+	if npc == nil then
+		return formatStr("NPC {}: missing npcEntity, entity type {}", action, event.entityType)
+	end
+
+	return formatStr(
+		"NPC {}: name={}, configID={}, type={}, uid={}, coord={}, fineCoord={}",
+		action,
+		npc.displayName or "nil",
+		npc.configID or "nil",
+		event.entityType or "nil",
+		npc.uid or "nil",
+		formatCoord(npc.coord),
+		formatCoord(npc.coordFine)
 	)
 end
 
+local npcAddedHandler = function(event)
+	log(formatNpcEvent("added", event))
+end
+
 local npcRemovedHandler = function(event)
-	if event.npcEntity.displayName == nil then
-		return
-	end
-	log(
-		formatStr(
-			"NPC removed: {} with id {} of type {}",
-			event.npcEntity.displayName,
-			event.npcEntity.configID,
-			event.entityType
-		)
-	)
+	log(formatNpcEvent("removed", event))
 end
 
 local lifePointsHandler = function(event)
@@ -166,11 +172,11 @@ local eventListeners = {
 		event = Event.NPCEntityRemoved,
 		handler = npcRemovedHandler,
 	},
-	{
-		name = "TextTooltipHandler",
-		event = Event.Logic,
-		handler = textTooltipHandler,
-	},
+	-- {
+	-- 	name = "TextTooltipHandler",
+	-- 	event = Event.Logic,
+	-- 	handler = textTooltipHandler,
+	-- },
 	{
 		name = "LifePointsHandler",
 		event = Event.VarTransmit,
