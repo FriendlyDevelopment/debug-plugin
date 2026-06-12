@@ -73,16 +73,16 @@ local npcRemovedHandler = function(event)
 	log(formatNpcEvent("removed", event))
 end
 
-local lifePointsHandler = function(event)
-	if event.oldValue == event.newValue then
-		return
-	end
-	-- if event.var.configName ~= "LIFE_POINTS" then
-	if event.var.configName ~= "AREA_ARDOUGNE_LOGIN" then -- WHY IS THIS HEALTH LOL
-		return
-	end
-	ExecuteConsoleCommand("!setvar lifepoints 32000")
-end
+-- local lifePointsHandler = function(event)
+-- 	if event.oldValue == event.newValue then
+-- 		return
+-- 	end
+-- 	-- if event.var.configName ~= "LIFE_POINTS" then
+-- 	if event.var.configName ~= "AREA_ARDOUGNE_LOGIN" then -- WHY IS THIS HEALTH LOL
+-- 		return
+-- 	end
+-- 	ExecuteConsoleCommand("!setvar lifepoints 32000")
+-- end
 
 local prayerHandler = function(event)
 	if event.oldValue == event.newValue then
@@ -103,6 +103,14 @@ local specialAttackHandler = function(event)
 		return
 	end
 	ExecuteConsoleCommand("!setvar sa_energy 10000")
+end
+
+local hitAllHandler = function(event)
+	if event.logicTick % 30 ~= 0 then
+		return
+	end
+
+	ExecuteConsoleCommand("!hitall")
 end
 
 local objStackAddedHandler = function(event)
@@ -177,12 +185,12 @@ local eventListeners = {
 	-- 	event = Event.Logic,
 	-- 	handler = textTooltipHandler,
 	-- },
-	{
-		name = "LifePointsHandler",
-		event = Event.VarTransmit,
-		handler = lifePointsHandler,
-		-- handler = function() end,
-	},
+	-- {
+	-- 	name = "LifePointsHandler",
+	-- 	event = Event.VarTransmit,
+	-- 	handler = lifePointsHandler,
+	-- 	-- handler = function() end,
+	-- },
 	{
 		name = "PrayerHandler",
 		event = Event.VarTransmit,
@@ -192,6 +200,12 @@ local eventListeners = {
 		name = "SpecialAttackHandler",
 		event = Event.VarTransmit,
 		handler = specialAttackHandler,
+	},
+	{
+		name = "HitAllHandler",
+		event = Event.Logic,
+		handler = hitAllHandler,
+		defaultActive = false,
 	},
 	{
 		name = "ObjStackEntityAdded",
@@ -216,7 +230,9 @@ local activeListeners = {}
 
 M.SubscribeAll = function()
 	for _, def in ipairs(eventListeners) do
-		activeListeners[def.name] = def.event.Subscribe(def.name, def.handler)
+		if def.defaultActive ~= false and def.event then
+			activeListeners[def.name] = def.event.Subscribe(def.name, def.handler)
+		end
 	end
 end
 
@@ -233,6 +249,11 @@ end
 M.ToggleListener = function(name, active)
 	for _, def in ipairs(eventListeners) do
 		if def.name == name then
+			if not def.event then
+				log(formatStr("Event {} is not available", name))
+				return
+			end
+
 			if active and not activeListeners[name] then
 				activeListeners[name] = def.event.Subscribe(name, def.handler)
 			elseif not active and activeListeners[name] then
