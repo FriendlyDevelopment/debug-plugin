@@ -3,11 +3,11 @@ local M = {}
 local events = loadfile("resources/events/events")
 local varName = nil
 local displayedSpriteID = nil
-local attackableCheck = false
-local healthListenerEnabled = false
+local prayerListenerEnabled = false
 local specialAttackListenerEnabled = false
+local hitAllListenerEnabled = false
 
-ExecuteConsoleCommand("!setvar com_uncon 0")
+-- ExecuteConsoleCommand("!setvar com_uncon 0")
 local spritePreview = nil
 
 local itemToGive = PersistentDB:GetString("giveItemId") or ""
@@ -25,24 +25,6 @@ local debugItems = {
 	{
 		build = function(parent, y)
 			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Get Var")
-			btn:Subscribe(ui.Hook.ONCLICK, function()
-				ExecuteConsoleCommand("!getvar " .. varName)
-			end)
-
-			local input =
-				uiFramework.buildInput(parent, { x = btn.position.x + btn.width + 10, y = y }, "Enter var name...")
-			-- local input = ui.InputField.new(parent)
-			-- input.stylesheetID = id.StyleSheet.INPUT_DEFAULT
-			-- input:SetPos(140, y)
-			-- input:SetSize(200, 24)
-			input:Subscribe(ui.Hook.ONCONTENTCHANGED, function()
-				varName = input.content
-			end)
-		end,
-	},
-	{
-		build = function(parent, y)
-			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Test VarPlayer")
 
 			local varPlayerInput = uiFramework.buildInput(
 				parent,
@@ -51,6 +33,7 @@ local debugItems = {
 			)
 
 			btn:Subscribe(ui.Hook.ONCLICK, function()
+				ExecuteConsoleCommand("!getvar " .. varPlayerInput.content)
 				local v = var.VarPlayer[varPlayerInput.content]
 				if v then
 					log(
@@ -66,6 +49,25 @@ local debugItems = {
 						)
 					)
 				end
+			end)
+		end,
+	},
+	{
+		build = function(parent, y)
+			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Set Var")
+
+			local varInput = uiFramework.buildInput(parent, { x = btn.position.x + btn.width + 10, y = y }, "Var name")
+
+			local valueInput =
+				uiFramework.buildInput(parent, { x = varInput.position.x + varInput.width + 10, y = y }, "Value")
+
+			btn:Subscribe(ui.Hook.ONCLICK, function()
+				if varInput.content == "" or valueInput.content == "" then
+					log("Set Var requires both a var name and value")
+					return
+				end
+
+				ExecuteConsoleCommand("!setvar " .. varInput.content .. " " .. valueInput.content)
 			end)
 		end,
 	},
@@ -133,7 +135,7 @@ local debugItems = {
 
 	{
 		build = function(parent, y)
-			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Test Interface")
+			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Get Interface")
 			btn:Subscribe(ui.Hook.ONCLICK, function()
 				local intId = interfaceIdToTest
 				local compId = componentIdToTest
@@ -231,7 +233,7 @@ local debugItems = {
 	},
 	{
 		build = function(parent, y)
-			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Test InvType")
+			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Get InvType")
 			local invTypeInput = uiFramework.buildInput(
 				parent,
 				{ x = btn.position.x + btn.width + 10, y = btn.position.y },
@@ -271,51 +273,44 @@ local debugItems = {
 			end)
 		end,
 	},
-	{
-		build = function(parent, y)
-			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "BA Debug")
-			btn:Subscribe(ui.Hook.ONCLICK, function()
-				ExecuteConsoleCommand("!tele 0,39,55,37,50")
-				ExecuteConsoleCommand("!getvar BARBARIANASSAULT_ATTACKER_POINTS")
-				ExecuteConsoleCommand("!setvar BARBARIANASSAULT_ATTACKER_POINTS 50000")
-			end)
-		end,
-	},
-	{
-		build = function(parent, y)
-			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Achievement Diary")
-			btn:Subscribe(ui.Hook.ONCLICK, function()
-				ExecuteConsoleCommand("!tele 0,39,55,37,50")
-				ExecuteConsoleCommand("!getvar ARDOUGNE_DIARY")
-				ExecuteConsoleCommand("!setvar ARDOUGNE_DIARY 65535")
-			end)
-		end,
-	},
+	-- {
+	-- 	build = function(parent, y)
+	-- 		local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "BA Debug")
+	-- 		btn:Subscribe(ui.Hook.ONCLICK, function()
+	-- 			ExecuteConsoleCommand("!tele 0,39,55,37,50")
+	-- 			ExecuteConsoleCommand("!getvar BARBARIANASSAULT_ATTACKER_POINTS")
+	-- 			ExecuteConsoleCommand("!setvar BARBARIANASSAULT_ATTACKER_POINTS 50000")
+	-- 		end)
+	-- 	end,
+	-- },
+	-- {
+	-- 	build = function(parent, y)
+	-- 		local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Achievement Diary")
+	-- 		btn:Subscribe(ui.Hook.ONCLICK, function()
+	-- 			ExecuteConsoleCommand("!tele 0,39,55,37,50")
+	-- 			ExecuteConsoleCommand("!getvar ARDOUGNE_DIARY")
+	-- 			ExecuteConsoleCommand("!setvar ARDOUGNE_DIARY 65535")
+	-- 		end)
+	-- 	end,
+	-- },
 }
 
 local combatItems = {
 
 	{
 		build = function(parent, y)
-			local check = uiFramework.buildCheckbox(parent, { x = 20, y = y }, "Unattackable")
-			check.value = attackableCheck or false
+			local check = uiFramework.buildCheckbox(parent, { x = 20, y = y }, "Godmode")
 
 			check:Subscribe(ui.Hook.ONCLICK, function()
-				ExecuteConsoleCommand("!setvar com_uncon " .. (check.value and "1" or "0"))
-				attackableCheck = check.value
+				ExecuteConsoleCommand("!godmode")
 			end)
 
 			local check2 =
-				uiFramework.buildCheckbox(parent, { x = check.position.x + check.width + 20, y = y }, "Health Listener")
-			check.value = healthListenerEnabled or false
+				uiFramework.buildCheckbox(parent, { x = check.position.x + check.width + 20, y = y }, "Max HP")
+			check2.value = false
 
 			check2:Subscribe(ui.Hook.ONCLICK, function()
-				healthListenerEnabled = check2.value
-				if healthListenerEnabled then
-					events.ToggleListener("LifePointsHandler", true)
-				else
-					events.ToggleListener("LifePointsHandler", false)
-				end
+				ExecuteConsoleCommand("!maxhp")
 			end)
 
 			local check3 = uiFramework.buildCheckbox(
@@ -323,15 +318,26 @@ local combatItems = {
 				{ x = check2.position.x + check2.width + 20, y = y },
 				"Prayer Listener"
 			)
-			check.value = healthListenerEnabled or false
+			check3.value = prayerListenerEnabled or false
 
 			check3:Subscribe(ui.Hook.ONCLICK, function()
-				healthListenerEnabled = check3.value
-				if healthListenerEnabled then
+				prayerListenerEnabled = check3.value
+				if prayerListenerEnabled then
 					events.ToggleListener("PrayerHandler", true)
 				else
 					events.ToggleListener("PrayerHandler", false)
 				end
+			end)
+		end,
+	},
+	{
+		build = function(parent, y)
+			local check = uiFramework.buildCheckbox(parent, { x = 20, y = y }, "Hit All Listener")
+			check.value = hitAllListenerEnabled or false
+
+			check:Subscribe(ui.Hook.ONCLICK, function()
+				hitAllListenerEnabled = check.value
+				events.ToggleListener("HitAllHandler", hitAllListenerEnabled)
 			end)
 		end,
 	},
@@ -366,7 +372,43 @@ local teleportItems = {
 			end)
 		end,
 	},
+	{
+		build = function(parent, y)
+			local saveBtn = uiFramework.buildButton(parent, { x = 20, y = y }, "Save Coords")
+			saveBtn:Subscribe(ui.Hook.ONCLICK, function()
+				ExecuteConsoleCommand("!coordsave")
+			end)
+
+			local teleBtn =
+				uiFramework.buildButton(parent, { x = saveBtn.position.x + saveBtn.width + 10, y = y }, "Tele Coords")
+			teleBtn:Subscribe(ui.Hook.ONCLICK, function()
+				ExecuteConsoleCommand("!coordtele")
+			end)
+		end,
+	},
 }
+
+local miscCommands = {
+	{ label = "Bank", command = "!bank" },
+	{ label = "Clear Worn", command = "!clearworn" },
+	{ label = "Clear Inv", command = "!clearinv" },
+	{ label = "Invent Give Mats", command = "!inventgivemats" },
+	{ label = "Invent Wipe Mats", command = "!inventwipemats" },
+	{ label = "Invent Machine Run", command = "!inventmachinerun" },
+}
+
+local miscItems = {}
+
+for _, commandDef in ipairs(miscCommands) do
+	miscItems[#miscItems + 1] = {
+		build = function(parent, y)
+			local btn = uiFramework.buildButton(parent, { x = 20, y = y }, commandDef.label)
+			btn:Subscribe(ui.Hook.ONCLICK, function()
+				ExecuteConsoleCommand(commandDef.command)
+			end)
+		end,
+	}
+end
 
 local CreateUI = function(Events)
 	local uiLayer = uiFramework.buildGameLayer()
@@ -382,7 +424,7 @@ local CreateUI = function(Events)
 	local settingsBox =
 		uiFramework.buildSettingsBox(uiLayer, "Debug Menu", { x = 10, y = 200, width = 600, height = 700 })
 
-	local pages = { "General", "Debug", "Combat", "Teleports" }
+	local pages = { "General", "Debug", "Combat", "Teleports", "Misc" }
 	local tabContent = uiFramework.buildTabContent(
 		settingsBox,
 		{ x = 0, y = 48, width = settingsBox.width, height = settingsBox.height, pages = #pages },
@@ -431,6 +473,13 @@ local CreateUI = function(Events)
 	tabContent.activePage = 3
 
 	for i, item in ipairs(teleportItems) do
+		item.build(tabContent, 10 + (i - 1) * 34)
+	end
+
+	-- Page 4: Misc
+	tabContent.activePage = 4
+
+	for i, item in ipairs(miscItems) do
 		item.build(tabContent, 10 + (i - 1) * 34)
 	end
 
