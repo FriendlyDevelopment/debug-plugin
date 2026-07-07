@@ -1,6 +1,6 @@
 local M = {}
 
-local events = loadfile("resources/events/events")
+local events = require("resources/events/events")
 local varName = nil
 local displayedSpriteID = nil
 local prayerListenerEnabled = false
@@ -19,7 +19,7 @@ local componentIdToTest = PersistentDB:Get("componentIdToTest") or ""
 local invTypeToTest = PersistentDB:Get("invTypeToTest") or ""
 
 ---@type FrameworkModule
-local uiFramework = loadfile("resources/ui/framework")
+local uiFramework = require("resources/ui/framework")
 
 local debugItems = {
 	{
