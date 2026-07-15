@@ -1,13 +1,11 @@
 local M = {}
 
 local events = require("resources/events/events")
-local varName = nil
 local displayedSpriteID = nil
 local prayerListenerEnabled = false
 local specialAttackListenerEnabled = false
 local hitAllListenerEnabled = false
 
--- ExecuteConsoleCommand("!setvar com_uncon 0")
 local spritePreview = nil
 
 local itemToGive = PersistentDB:GetString("giveItemId") or ""
@@ -21,6 +19,61 @@ local invTypeToTest = PersistentDB:Get("invTypeToTest") or ""
 ---@type FrameworkModule
 local uiFramework = require("resources/ui/framework")
 
+--- Resolves a component from either a numeric ID or string to an id and enum name
+---@param compId string
+---@return integer? numericId, string? componentName
+local function resolveComponentId(compId)
+	local numericId = tonumber(compId)
+	local componentName
+
+	if numericId then
+		componentName = id.Component.FromID(numericId)
+	else
+		numericId = id.Component[compId]
+		componentName = compId
+	end
+
+	if not numericId then
+		return nil, nil
+	end
+
+	return numericId, componentName
+end
+
+--- Resolves a config or var enum from either the numeric ID or string
+---@param enumTable table An id.Enum table, like id.VarPlayer, id.Inv, ...
+---@param idOrName string
+---@return string? name
+local function resolveEnumName(enumTable, idOrName)
+	local numericId = tonumber(idOrName)
+	if numericId then
+		return enumTable.FromID(numericId)
+	end
+
+	return idOrName
+end
+
+--- Resolves an interface from either a numeric ID or string to an id and enum name
+---@param intId string
+---@return integer? numericId, string? interfaceName
+local function resolveInterfaceId(intId)
+	local numericId = tonumber(intId)
+	local interfaceName
+
+	if numericId then
+		interfaceName = id.Interface.FromID(numericId)
+	else
+		numericId = id.Interface[intId]
+		interfaceName = intId
+	end
+
+	if not numericId then
+		return nil, nil
+	end
+
+	return numericId, interfaceName
+end
+
 local debugItems = {
 	{
 		build = function(parent, y)
@@ -29,12 +82,18 @@ local debugItems = {
 			local varPlayerInput = uiFramework.buildInput(
 				parent,
 				{ x = btn.position.x + btn.width + 10, y = y },
-				"Enter VarPlayer name..."
+				"Enter VarPlayer name or ID..."
 			)
 
 			btn:Subscribe(ui.Hook.ONCLICK, function()
-				ExecuteConsoleCommand("!getvar " .. varPlayerInput.content)
-				local v = var.VarPlayer[varPlayerInput.content]
+				local varPlayerName = resolveEnumName(id.VarPlayer, varPlayerInput.content)
+				if not varPlayerName then
+					log(formatStr("VarPlayer {} does not exist", varPlayerInput.content))
+					return
+				end
+
+				ExecuteConsoleCommand("!getvar " .. varPlayerName)
+				local v = var.VarPlayer[varPlayerName]
 				if v then
 					log(
 						formatStr(
@@ -56,7 +115,8 @@ local debugItems = {
 		build = function(parent, y)
 			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Set Var")
 
-			local varInput = uiFramework.buildInput(parent, { x = btn.position.x + btn.width + 10, y = y }, "Var name")
+			local varInput =
+				uiFramework.buildInput(parent, { x = btn.position.x + btn.width + 10, y = y }, "Var name or ID")
 
 			local valueInput =
 				uiFramework.buildInput(parent, { x = varInput.position.x + varInput.width + 10, y = y }, "Value")
@@ -67,7 +127,13 @@ local debugItems = {
 					return
 				end
 
-				ExecuteConsoleCommand("!setvar " .. varInput.content .. " " .. valueInput.content)
+				local varPlayerName = resolveEnumName(id.VarPlayer, varInput.content)
+				if not varPlayerName then
+					log(formatStr("VarPlayer {} does not exist", varInput.content))
+					return
+				end
+
+				ExecuteConsoleCommand("!setvar " .. varPlayerName .. " " .. valueInput.content)
 			end)
 		end,
 	},
@@ -135,62 +201,128 @@ local debugItems = {
 
 	{
 		build = function(parent, y)
-			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Get Interface")
-			btn:Subscribe(ui.Hook.ONCLICK, function()
-				local intId = interfaceIdToTest
-				local compId = componentIdToTest
-				log(formatStr("Testing interface with ID {} and component ID {}", intId, compId))
-				if intId ~= "" and compId ~= "" then
-					log(formatStr("Attempting to get component with ID {} from interface {}", compId, intId))
-
-					local comp = id.Component[compId]
-					if not comp then
-						log(formatStr("Component ID {} does not exist in id.Component enum", compId))
-						return
-					end
-
-					local compo = ui.Interfaces:GetComponent(comp)
-					if compo then
-						log(
-							formatStr(
-								"Component found: Interface ID {}, Component ID {}, content: {}",
-								intId,
-								compId,
-								tostring(compo.content)
-							)
-						)
-					else
-						log("Component not found with given IDs")
-					end
-				else
-					log("Invalid interface or component ID")
-				end
-			end)
+			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "List Interface Components")
 
 			local interfaceIdInput = uiFramework.buildInput(
 				parent,
 				{ x = btn.position.x + btn.width + 10, y = btn.position.y },
-				"Interface ID"
+				"Interface ID or name"
 			)
 			interfaceIdInput.content = tostring(interfaceIdToTest)
 
 			-- Keep in mind TRAIL_REWARD interface and  TRAIL_REWARD__CURRENT_VALUE component, for clue value
 			interfaceIdInput:Subscribe(ui.Hook.ONCONTENTCHANGED, function()
 				interfaceIdToTest = interfaceIdInput.content
-				-- log(formatStr("Interface ID to test set to {}", interfaceIdToTest))
 				PersistentDB:Set("interfaceIdToTest", interfaceIdInput.content)
 			end)
 
+			btn:Subscribe(ui.Hook.ONCLICK, function()
+				if interfaceIdToTest == "" then
+					log("Invalid interface ID")
+					return
+				end
+
+				local numericInterfaceId, interfaceName = resolveInterfaceId(tostring(interfaceIdToTest))
+				if not numericInterfaceId then
+					log(formatStr("Interface {} does not exist in id.Interface enum", interfaceIdToTest))
+					return
+				end
+
+				-- We can't iterate over an interface's components unfortunately, so Combined IDs are (interfaceID << 16) | staticID
+				-- Found in the ui.Interface:GetComponent() docs
+				--
+				-- Probably better to just use `pan Component` and searching for the interface name with __ as suffix
+				local prefix = interfaceName .. "__"
+				local count = 0
+				for staticId = 0, 0xFFFF do
+					local combinedId = numericInterfaceId * 65536 + staticId
+					local componentName = id.Component.FromID(combinedId)
+					if componentName and componentName:sub(1, #prefix) == prefix then
+						log(formatStr("Component: {} (ID {})", componentName, combinedId))
+						count = count + 1
+					end
+				end
+				log(formatStr("Found {} components in interface {}", count, interfaceName))
+			end)
+		end,
+	},
+
+	{
+		build = function(parent, y)
+			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Get Component's Components")
+
 			local componentIdInput = uiFramework.buildInput(
 				parent,
-				{ x = interfaceIdInput.position.x + interfaceIdInput.width + 10, y = interfaceIdInput.position.y },
-				"Component ID"
+				{ x = btn.position.x + btn.width + 10, y = btn.position.y },
+				"Component ID or name"
 			)
 			componentIdInput.content = tostring(componentIdToTest)
 
 			componentIdInput:Subscribe(ui.Hook.ONCONTENTCHANGED, function()
 				componentIdToTest = componentIdInput.content
 				PersistentDB:Set("componentIdToTest", componentIdInput.content)
+			end)
+
+			btn:Subscribe(ui.Hook.ONCLICK, function()
+				if componentIdToTest == "" then
+					log("Invalid component ID")
+					return
+				end
+
+				local numericId, componentName = resolveComponentId(tostring(componentIdToTest))
+				if not numericId then
+					log(formatStr("Component {} does not exist in id.Component enum", componentIdToTest))
+					return
+				end
+
+				local compo = ui.Interfaces:GetComponent(numericId)
+				if not compo then
+					log(formatStr("Component {} is not currently loaded", componentName))
+					return
+				end
+
+				-- Only ComponentCollection-based components (groupboxes, paged layers, etc.) have children to iterate
+				local count = 0
+				local ok = pcall(function()
+					compo:IterateStaticComponents(function(child, visible)
+						log(
+							formatStr(
+								"Static child: type {}, staticID {}, visible {}",
+								child.type,
+								child.staticID,
+								visible
+							)
+						)
+						count = count + 1
+					end)
+					compo:IterateDynamicComponents(function(child, visible)
+						log(
+							formatStr(
+								"Dynamic child: type {}, categoryID {}, dynamicID {}, visible {}",
+								child.type,
+								child.categoryID,
+								child.dynamicID,
+								visible
+							)
+						)
+						count = count + 1
+					end)
+				end)
+
+				if not ok then
+					log(formatStr("Component {} does not support iterating child components", componentName))
+					-- return
+				end
+				local okContent, text = pcall(function()
+					return tostring(compo.content)
+				end)
+				if not okContent then
+					log(formatStr("Component {} does not support accessing content", componentName))
+				else
+					log(formatStr("Component {} content: {}", componentName, text))
+				end
+
+				log(formatStr("Found {} child components in {}", count, componentName))
 			end)
 		end,
 	},
@@ -206,27 +338,25 @@ local debugItems = {
 			-- The interface doesn't actually need to be open to be able to access the component's content / modify it
 
 			btn:Subscribe(ui.Hook.ONCLICK, function()
-				local intId = interfaceIdToTest
 				local compId = componentIdToTest
-				log(formatStr("Testing interface modification with ID {} and component ID {}", intId, compId))
-				if intId ~= "" and compId ~= "" then
-					local comp = ui.Interfaces:GetComponent(id.Component[compId])
+				log(formatStr("Testing component modification with ID {}", compId))
+				if compId ~= "" then
+					local numericId, componentName = resolveComponentId(tostring(compId))
+					if not numericId then
+						log(formatStr("Component {} does not exist in id.Component enum", compId))
+						return
+					end
+
+					local comp = ui.Interfaces:GetComponent(numericId)
 					if comp then
-						log(
-							formatStr(
-								"Component found: Interface ID {}, Component ID {}, content: {}",
-								intId,
-								compId,
-								tostring(comp.content)
-							)
-						)
+						log(formatStr("Component found: {}, content: {}", componentName, tostring(comp.content)))
 						comp.content = modifyTextInput.content
 						log("Component content modified to: " .. modifyTextInput.content)
 					else
-						log("Component not found with given IDs")
+						log("Component not found with given ID")
 					end
 				else
-					log("Invalid interface or component ID")
+					log("Invalid component ID")
 				end
 			end)
 		end,
@@ -237,7 +367,7 @@ local debugItems = {
 			local invTypeInput = uiFramework.buildInput(
 				parent,
 				{ x = btn.position.x + btn.width + 10, y = btn.position.y },
-				"Enter InvType..."
+				"Enter InvType name or ID..."
 			)
 
 			invTypeInput.content = invTypeToTest
@@ -247,7 +377,13 @@ local debugItems = {
 			end)
 
 			btn:Subscribe(ui.Hook.ONCLICK, function()
-				local inv = config.Inv[invTypeInput.content]
+				local invTypeName = resolveEnumName(id.Inv, invTypeInput.content)
+				if not invTypeName then
+					log(formatStr("InvType {} does not exist", invTypeInput.content))
+					return
+				end
+
+				local inv = config.Inv[invTypeName]
 				if inv then
 					log(
 						formatStr(
@@ -263,36 +399,6 @@ local debugItems = {
 			end)
 		end,
 	},
-
-	{
-		build = function(parent, y)
-			local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Champions Challenge Debug")
-			btn:Subscribe(ui.Hook.ONCLICK, function()
-				ExecuteConsoleCommand("!give CHAMPIONS_CHALLENGE_GOBLIN")
-				ExecuteConsoleCommand("!tele 0,49,152,48,32")
-			end)
-		end,
-	},
-	-- {
-	-- 	build = function(parent, y)
-	-- 		local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "BA Debug")
-	-- 		btn:Subscribe(ui.Hook.ONCLICK, function()
-	-- 			ExecuteConsoleCommand("!tele 0,39,55,37,50")
-	-- 			ExecuteConsoleCommand("!getvar BARBARIANASSAULT_ATTACKER_POINTS")
-	-- 			ExecuteConsoleCommand("!setvar BARBARIANASSAULT_ATTACKER_POINTS 50000")
-	-- 		end)
-	-- 	end,
-	-- },
-	-- {
-	-- 	build = function(parent, y)
-	-- 		local btn = uiFramework.buildButton(parent, { x = 10, y = y }, "Achievement Diary")
-	-- 		btn:Subscribe(ui.Hook.ONCLICK, function()
-	-- 			ExecuteConsoleCommand("!tele 0,39,55,37,50")
-	-- 			ExecuteConsoleCommand("!getvar ARDOUGNE_DIARY")
-	-- 			ExecuteConsoleCommand("!setvar ARDOUGNE_DIARY 65535")
-	-- 		end)
-	-- 	end,
-	-- },
 }
 
 local combatItems = {

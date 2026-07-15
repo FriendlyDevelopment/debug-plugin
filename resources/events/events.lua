@@ -33,7 +33,11 @@ local interfacePollHandler = function(event)
 	for i = 0, 1870 do
 		local open = ui.Interfaces:GetInterface(i) ~= nil
 		if open ~= knownInterfaces[i] then
-			log((open and "OPENED" or "CLOSED") .. " interface " .. i)
+			local interfaceName = id.Interface.FromID(i)
+			if interfaceName == nil then
+				interfaceName = "Unknown"
+			end
+			log(formatStr("{} interface {} ({})", open and "OPENED" or "CLOSED", i, tostring(interfaceName)))
 			knownInterfaces[i] = open
 		end
 	end

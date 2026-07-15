@@ -2,7 +2,7 @@ local M = {}
 ---@return ui.Layer | nil Builds the full-screen UI layer that will host the settings panel. This layer is attached to the main game interface
 local buildGameLayer = function()
 	-- Full-screen layer to host the settings panel
-	local gameArea = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
+	local gameArea = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP)
 	if not gameArea then
 		log("Can't find game area")
 		return
@@ -14,6 +14,27 @@ local buildGameLayer = function()
 end
 
 M.buildGameLayer = buildGameLayer
+
+function M:makeDraggable(element, elementToMove)
+	local dragOffset = nil
+	element:Subscribe(ui.Hook.ONHOLD, function()
+		local mousePos = Mouse.GetPosition()
+		if not mousePos then
+			return
+		end
+		if not dragOffset then
+			dragOffset = {
+				x = mousePos.x - element.x,
+				y = mousePos.y - element.y,
+			}
+		end
+		elementToMove:SetPos(mousePos.x - dragOffset.x, mousePos.y - dragOffset.y, 0, 0, 0, 0)
+	end)
+
+	element:Subscribe(ui.Hook.ONRELEASE, function()
+		dragOffset = nil
+	end)
+end
 
 ---@class SettingsConfig
 ---@field x number The x position of the settings box
@@ -34,24 +55,7 @@ local buildSettingsBox = function(parent, title, settingsConfig)
 	settingsBox.headerText.content = title
 	settingsBox.clickthrough = false
 
-	local dragOffset = nil
-	settingsBox:Subscribe(ui.Hook.ONHOLD, function()
-		local mousePos = Mouse.GetPosition()
-		if not mousePos then
-			return
-		end
-		if not dragOffset then
-			dragOffset = {
-				x = mousePos.x - settingsBox.x,
-				y = mousePos.y - settingsBox.y,
-			}
-		end
-		settingsBox:SetPos(mousePos.x - dragOffset.x, mousePos.y - dragOffset.y, 0, 0, 0, 0)
-	end)
-
-	settingsBox:Subscribe(ui.Hook.ONRELEASE, function()
-		dragOffset = nil
-	end)
+	M:makeDraggable(settingsBox, settingsBox)
 
 	return settingsBox
 end
@@ -91,6 +95,7 @@ local buildTabContent = function(parent, tabConfig, headerConfig)
 	tabHeader.entryText.isShadowed = true
 	tabHeader.entryText.alignHorizontal = ui.AlignMode.CENTRE
 	-- tabHeader.pageHeaderSprite.rgba = 0xF54EF5FF -- Example colouring
+
 	return tabContent
 end
 
@@ -122,13 +127,14 @@ M.buildButton = buildButton
 ---@param parent ui.ComponentCollection The parent UI element to attach the input field to
 ---@param position PositionConfig The position to place the input field at
 ---@param placeholder string The placeholder text to display when the input is empty
+---@param filterMode ui.InputFieldFilterMode? The input filter mode to apply. Defaults to ui.InputFieldFilterMode.NONE
 ---@return ui.InputField The created input field component
-local buildInput = function(parent, position, placeholder)
+local buildInput = function(parent, position, placeholder, filterMode)
 	local interfaceIdInput = ui.InputField.new(parent)
 	interfaceIdInput.stylesheetID = id.StyleSheet.INPUT_DEFAULT
 	interfaceIdInput:SetPos(position.x, position.y)
 	interfaceIdInput:SetSize(200, 24)
-	interfaceIdInput:Setup(ui.TextContentVisibilityMode.VISIBLE, ui.InputFieldFilterMode.NONE, 200)
+	interfaceIdInput:Setup(ui.TextContentVisibilityMode.VISIBLE, filterMode or ui.InputFieldFilterMode.NONE, 200)
 	if placeholder then
 		interfaceIdInput.emptyText = placeholder
 	end
@@ -152,6 +158,24 @@ local buildCheckbox = function(parent, position, label)
 end
 
 M.buildCheckbox = buildCheckbox
+
+--- Helper function to build a slider with consistent styling and positioning
+---@param parent ui.ComponentCollection The parent UI element to attach the slider to
+---@param position PositionConfig The position to place the slider at
+---@param min number The minimum value the slider can be set to
+---@param max number The maximum value the slider can be set to
+---@param value number The initial value for the slider
+---@return ui.Slider The created slider component
+local buildSlider = function(parent, position, min, max, value)
+	local slider = ui.Slider.new(parent)
+	slider.stylesheetID = id.StyleSheet.SLIDER_DEFAULT
+	slider:SetPos(position.x, position.y)
+	slider:SetSize(200, 40)
+	slider:Setup(min, max, value, 1, 1)
+	return slider
+end
+
+M.buildSlider = buildSlider
 
 --- Builds a full-screen canvas for world-space drawing (lines, triangles, etc.)
 ---@param parent ui.ComponentCollection The parent UI element to attach the canvas to

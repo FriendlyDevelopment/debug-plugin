@@ -2,8 +2,8 @@
 	"$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
 	"runtime.version": "Lua 5.4",
 	"workspace.library": [
-		"../stubs-autogen/",
-		"../stubs-autogen/generated/",
-		"../stubs-autogen/consts/"
-	]
+		"../runescape-api-stubs/types.lua",
+		"../runescape-api-stubs/generated/"
+	],
+	"workspace.checkThirdParty": false
 }
