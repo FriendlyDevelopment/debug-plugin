@@ -11,6 +11,8 @@ local spritePreview = nil
 local itemToGive = PersistentDB:GetString("giveItemId") or ""
 local itemAmount = PersistentDB:GetInt("giveItemAmount") or 1
 
+local addObjId = PersistentDB:GetString("addObjId") or ""
+local addObjAmount = PersistentDB:GetInt("addObjAmount") or 1
 local interfaceIdToTest = PersistentDB:Get("interfaceIdToTest") or ""
 local componentIdToTest = PersistentDB:Get("componentIdToTest") or ""
 
@@ -349,6 +351,35 @@ local debugItems = {
         onChange = function(_, _, content)
           invTypeToTest = content
           PersistentDB:Set("invTypeToTest", content)
+        end,
+      })
+    end,
+  },
+  {
+    build = function(page)
+      page:AddSimpleButton("Put Obj on floor", function() ExecuteConsoleCommand("!objadd " .. addObjId .. " " .. addObjAmount) end)
+
+      page:AddTextField({
+        inline = true,
+        width = 140,
+        placeholder = "Obj ID",
+        text = addObjId,
+        onChange = function(_, _, content)
+          addObjId = content
+          PersistentDB:SetString("addObjId", content)
+        end,
+      })
+
+      page:AddTextField({
+        inline = true,
+        width = 90,
+        placeholder = "Amount",
+        text = tostring(addObjAmount),
+        filterMode = ui.InputFieldFilterMode.NUMERIC,
+        maxLength = 2147483647,
+        onChange = function(_, _, content)
+          addObjAmount = content == "" and 0 or (tonumber(content) or 0)
+          PersistentDB:SetInt("addObjAmount", addObjAmount)
         end,
       })
     end,
