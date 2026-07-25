@@ -2,6 +2,9 @@
 	"name": "Friendly's Debug Plugin",
 	"version": "1.0",
 	"dependencies": [],
+	"requiredDependencies": [
+		"prettyui"
+	],
 	"requiredPermissions": [],
 	"optionalPermissions": [
 		"httpAccess"
