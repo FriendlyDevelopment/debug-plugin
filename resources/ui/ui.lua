@@ -537,7 +537,19 @@ local CreateUI = function(Events)
     miscPage:AddSimpleButton(commandDef.label, function() ExecuteConsoleCommand(commandDef.command) end)
   end
 
-  return settingsBox
+  return {
+    Destroy = function()
+      if settingsBox then
+        settingsBox:Destroy()
+        settingsBox = nil
+      end
+      if spritePreview then
+        spritePreview:Destroy()
+        spritePreview = nil
+      end
+      itemRibbon:Destroy()
+    end,
+  }
 end
 
 M.CreateUI = CreateUI

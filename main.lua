@@ -2,12 +2,9 @@ log("Loading plugin...")
 
 local events = require("resources/events/events")
 
-local ui = require("resources/ui/ui")
-local settingsBox = ui.CreateUI(events)
+local uiMain = require("resources/ui/ui")
+local ui = uiMain.CreateUI(events)
 
 function PluginShutdown()
-	if settingsBox then
-		settingsBox:Destroy()
-		settingsBox = nil
-	end
+  if ui then ui:Destroy() end
 end
