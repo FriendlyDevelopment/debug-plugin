@@ -67,6 +67,25 @@ local function resolveInterfaceId(intId)
   return numericId, interfaceName
 end
 
+--- Resolves a sprite from either a numeric ID or string to an id and enum name
+---@param spriteId string
+---@return integer? numericId, string? spriteName
+local function resolveSpriteId(spriteId)
+  local numericId = tonumber(spriteId)
+  local spriteName
+
+  if numericId then
+    spriteName = id.Sprite.FromID(numericId)
+  else
+    numericId = id.Sprite[spriteId]
+    spriteName = spriteId
+  end
+
+  if not numericId then return nil, nil end
+
+  return numericId, spriteName
+end
+
 local debugItems = {
   {
     build = function(page)
@@ -138,11 +157,9 @@ local debugItems = {
       page:AddTextField({
         inline = true,
         width = 140,
-        placeholder = "Enter sprite ID...",
-        filterMode = ui.InputFieldFilterMode.NUMERIC,
-        maxLength = 10,
+        placeholder = "Sprite ID or name",
         onChange = function(_, _, content)
-          displayedSpriteID = tonumber(content)
+          displayedSpriteID = resolveSpriteId(content)
           if spritePreview and displayedSpriteID then spritePreview.spriteID = displayedSpriteID end
         end,
       })

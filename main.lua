@@ -7,4 +7,5 @@ local ui = uiMain.CreateUI(events)
 
 function PluginShutdown()
   if ui then ui:Destroy() end
+  ui = nil
 end
