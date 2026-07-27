@@ -489,6 +489,14 @@ local CreateUI = function(Events)
     height = 700,
   })
 
+  settingsBox.root.hidden = true
+  local itemRibbon = prettyui.RibbonBar.Register({
+    id = "debug-menu",
+    object = config.Obj.TRH122_GLOWBUG,
+    tooltip = "Open debug menu",
+    onClick = function(handle, active) settingsBox.root.hidden = not active end,
+  })
+
   local tabs = settingsBox:AddTabs({ "General", "Debug", "Combat", "Teleports", "Misc" }, { height = -20, heightAnchor = 1.0 })
 
   local generalPage = tabs:GetPage(1)
