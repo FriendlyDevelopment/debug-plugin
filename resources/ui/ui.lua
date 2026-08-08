@@ -524,13 +524,21 @@ local CreateUI = function(Events)
 
   -- Page: General
   generalPage:AddTitle("Event Listeners")
+  local listenerControls = {}
+  generalPage:AddSimpleButton("Toggle All Listeners", function()
+    Events.ToggleAllListeners()
+    for name, control in pairs(listenerControls) do
+      control:SetSelected(name, Events.IsListenerActive(name), false)
+    end
+  end)
 
   -- Adds all event listeners with toggles to enable or disable them
   for _, name in ipairs(Events.GetListenerNames()) do
-    generalPage:AddCheckboxButton({
-      { text = name, value = name, selected = Events.IsListenerActive(name) },
+    local listenerName = name
+    listenerControls[listenerName] = generalPage:AddCheckboxButton({
+      { text = listenerName, value = listenerName, selected = Events.IsListenerActive(listenerName) },
     }, {
-      onChange = function(_, _, _, selected) Events.ToggleListener(name, selected) end,
+      onChange = function(_, _, _, selected) Events.ToggleListener(listenerName, selected) end,
     })
   end
 

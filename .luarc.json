@@ -1,9 +1,11 @@
 {
-	"$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
-	"runtime.version": "Lua 5.4",
-	"workspace.library": [
-		"../runescape-api-stubs/types.lua",
-		"../runescape-api-stubs/generated/"
-	],
-	"workspace.checkThirdParty": false
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.4",
+  "workspace.library": [
+    "../runescape-api-stubs/types.lua",
+    "../runescape-api-stubs/generated/",
+    "../runescape-api-stubs/consts/"
+  ],
+  "workspace.preloadFileSize": 10000000,
+  "workspace.checkThirdParty": false
 }
