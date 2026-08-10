@@ -498,21 +498,31 @@ local CreateUI = function(Events)
   spritePreview:SetSize(64, 64)
   spritePreview.hidden = true
 
+  local itemRibbon
   local settingsBox = prettyui.Window.new(gameArea, {
     title = "Debug Menu",
     x = 10,
     y = 200,
     width = 600,
     height = 700,
+    onClose = function()
+      if itemRibbon then itemRibbon:SetActive(false) end
+    end,
   })
 
-  settingsBox.root.hidden = true
-  local itemRibbon = prettyui.RibbonBar.Register({
+  itemRibbon = prettyui.RibbonBar.Register({
     id = "debug-menu",
     object = config.Obj.TRH122_GLOWBUG,
     tooltip = "Open debug menu",
-    onClick = function(handle, active) settingsBox.root.hidden = not active end,
+    onClick = function(_, active)
+      if active then
+        settingsBox:Show()
+      else
+        settingsBox:Close()
+      end
+    end,
   })
+  settingsBox:Close()
 
   local tabs = settingsBox:AddTabs({ "General", "Debug", "Combat", "Teleports", "Misc" }, { height = -20, heightAnchor = 1.0 })
 
