@@ -10,6 +10,9 @@ local function createUI(layerEvent)
   ui = uiMain.CreateUI(layerEvent, events)
 end
 
+ExecuteConsoleCommand("ppr debug-plugin")
+ExecuteConsoleCommand("ppe debug-plugin chatAccess")
+
 Event.SettingsLayerReady.Subscribe("debugPluginSettingsEvent", createUI)
 Event.ContentLayerReady.Subscribe("debugPluginContentEvent", createUI)
 
