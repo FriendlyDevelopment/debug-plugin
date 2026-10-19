@@ -1,0 +1,13 @@
+{
+  "name": "Friendly's Debug Plugin",
+  "version": "0.1.0",
+  "contactEmailAddress": "friendliness@friendliness.me",
+  "requiredDependencies": {
+    "prettyui": 6398181
+  },
+  "optionalPermissions": [
+    "chatAccess"
+  ],
+  "hasSettingsIcon": true,
+  "hasRibbonIcon": true
+}
