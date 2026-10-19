@@ -486,7 +486,7 @@ local miscCommands = {
   { label = "Invent Machine Run", command = "!inventmachinerun" },
 }
 
-local CreateUI = function(Events)
+local CreateUI = function(layerEvent, Events)
   local gameArea = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
   if not gameArea then
     log("Can't find game area")
@@ -498,31 +498,12 @@ local CreateUI = function(Events)
   spritePreview:SetSize(64, 64)
   spritePreview.hidden = true
 
-  local itemRibbon
-  local settingsBox = prettyui.Window.new(gameArea, {
-    title = "Debug Menu",
-    x = 10,
-    y = 200,
-    width = 600,
-    height = 700,
-    onClose = function()
-      if itemRibbon then itemRibbon:SetActive(false) end
-    end,
+  local settingsBox = prettyui.SimpleView.new(layerEvent.component, {
+    width = 0,
+    height = 0,
+    widthAnchor = 1.0,
+    heightAnchor = 1.0,
   })
-
-  itemRibbon = prettyui.RibbonBar.Register({
-    id = "debug-menu",
-    object = config.Obj.TRH122_GLOWBUG,
-    tooltip = "Open debug menu",
-    onClick = function(_, active)
-      if active then
-        settingsBox:Show()
-      else
-        settingsBox:Close()
-      end
-    end,
-  })
-  settingsBox:Close()
 
   local tabs = settingsBox:AddTabs({ "General", "Debug", "Combat", "Teleports", "Misc" }, { height = -20, heightAnchor = 1.0 })
 
@@ -582,7 +563,6 @@ local CreateUI = function(Events)
         spritePreview:Destroy()
         spritePreview = nil
       end
-      itemRibbon:Destroy()
     end,
   }
 end
