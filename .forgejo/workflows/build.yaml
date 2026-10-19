@@ -1,0 +1,116 @@
+name: Build draft release
+
+on:
+  push:
+    tags: ['[0-9]*.[0-9]*.[0-9]*']
+
+concurrency:
+  group: release-${{ forgejo.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: alpine:3.22
+    defaults:
+      run:
+        shell: sh -eu {0}
+    env:
+      FORGE_URL: ${{ forgejo.server_url }}
+      REPOSITORY: ${{ forgejo.repository }}
+      COMMIT: ${{ forgejo.sha }}
+      TAG: ${{ forgejo.ref_name }}
+      MOD_NAME: ${{ forgejo.event.repository.name }}
+    steps:
+      - name: Install tools
+        run: apk add --no-cache git zip jq curl git-cliff
+
+      # Shell checkout avoids requiring a Node.js action runtime on Alpine.
+      - name: Checkout full history
+        env:
+          CHECKOUT_TOKEN: ${{ forgejo.token }}
+        run: |
+          git init .
+          git remote add origin "${FORGE_URL%/}/$REPOSITORY.git"
+          AUTH=$(printf 'x-access-token:%s' "$CHECKOUT_TOKEN" | base64 | tr -d '\n')
+          git -c "http.extraHeader=Authorization: Basic $AUTH" fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
+          git checkout --detach "$COMMIT"
+
+      - name: Package committed plugin files
+        run: |
+          printf '%s' "$TAG" | jq -Rse 'test("^[0-9]+[.][0-9]+[.][0-9]+$")' > /dev/null \
+            || { echo 'Tag must use major.minor.patch format, for example 1.0.0' >&2; exit 1; }
+          ROOT="$PWD"
+          STAGE="$ROOT/stage"
+          LIST="$ROOT/stage.list"
+          OUT="$ROOT/dist"
+          mkdir -p "$STAGE" "$OUT"
+          git archive --format=tar "$COMMIT" | tar -x -C "$STAGE"
+          # Copy the plugin.modio.json to plugin.json so we can keep using the original plugin.json locally in development
+          cp "$STAGE/plugin.modio.json" "$STAGE/plugin.json"
+          cd "$STAGE"
+          find . -type f | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r f; do
+            case "$f" in
+              src/dev/*) ;;
+              main.lua|plugin.json|src/*.lua|resources/*) printf '%s\n' "$f" ;;
+            esac
+          done > "$LIST"
+          ZIP="$OUT/$MOD_NAME-$TAG.zip"
+          zip -X -D -9 -q "$ZIP" -@ < "$LIST"
+          cd "$OUT"
+          sha256sum "$MOD_NAME-$TAG.zip" > SHA256SUMS
+
+      - name: Validate packaged manifest
+        run: |
+          fail() { echo "Manifest validation failed: $*" >&2; exit 1; }
+          unzip -p "dist/$MOD_NAME-$TAG.zip" plugin.json > dist/plugin.json \
+            || fail 'Could not extract plugin.json from the release ZIP'
+          jq -e 'type == "object"' dist/plugin.json > /dev/null \
+            || fail 'plugin.json must be a valid JSON object'
+          VERSION=$(jq -r '.version' dist/plugin.json)
+          jq -e --arg tag "$TAG" '.version == $tag' dist/plugin.json > /dev/null \
+            || fail "plugin.json version '$VERSION' does not match tag '$TAG'"
+          jq -e '(.contactEmailAddress // "") | test("^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$")' dist/plugin.json > /dev/null \
+            || fail 'contactEmailAddress is missing or invalid'
+          jq -e '(((.urls // []) | length) == 0) or ((((.requiredPermissions // []) + (.optionalPermissions // [])) | index("httpAccess")) != null)' dist/plugin.json > /dev/null \
+            || fail 'Non-empty urls require the httpAccess permission'
+          jq -e '.requiredDependencies.prettyui != null' dist/plugin.json > /dev/null \
+            || fail 'requiredDependencies.prettyui is missing'
+          echo "Manifest validated for tag $TAG"
+
+      - name: Generate changelog
+        run: git-cliff --current --strip header -o dist/CHANGELOG.md
+
+      - name: Create or refresh draft release
+        env:
+          FORGE_TOKEN: ${{ secrets.FORGE_TOKEN }}
+        run: |
+          : "${FORGE_TOKEN:?Set the FORGE_TOKEN repository secret}"
+          API="${FORGE_URL%/}/api/v1/repos/$REPOSITORY"
+          AUTH="Authorization: token $FORGE_TOKEN"
+          STATUS=$(curl -sS -o dist/release.json -w '%{http_code}' -H "$AUTH" "$API/releases/tags/$TAG")
+          jq -n --arg tag "$TAG" --rawfile body dist/CHANGELOG.md \
+            '{tag_name: $tag, name: $tag, body: $body, draft: true, prerelease: false}' > dist/release-request.json
+          case "$STATUS" in
+            200)
+              jq -e '.draft == true' dist/release.json > /dev/null || { echo 'Refusing to overwrite a published release' >&2; exit 1; }
+              REL_ID=$(jq -er '.id' dist/release.json)
+              curl --fail-with-body -sS -X PATCH -H "$AUTH" -H 'Content-Type: application/json' \
+                -d @dist/release-request.json "$API/releases/$REL_ID" > /dev/null
+              jq -r '.assets[].id' dist/release.json | while IFS= read -r id; do
+                curl --fail-with-body -sS -X DELETE -H "$AUTH" "$API/releases/$REL_ID/assets/$id"
+              done
+              ;;
+            404)
+              curl --fail-with-body -sS -X POST -H "$AUTH" -H 'Content-Type: application/json' \
+                -d @dist/release-request.json "$API/releases" > dist/release.json
+              REL_ID=$(jq -er '.id' dist/release.json)
+              ;;
+            *) echo "Release lookup failed: HTTP $STATUS" >&2; exit 1 ;;
+          esac
+          for f in "dist/$MOD_NAME-$TAG.zip" dist/SHA256SUMS; do
+            curl --fail-with-body -sS -X POST -H "$AUTH" -F "attachment=@$f" \
+              "$API/releases/$REL_ID/assets?name=$(basename "$f")" > /dev/null
+          done
+          echo "Draft release ready (id $REL_ID)"

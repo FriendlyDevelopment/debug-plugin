@@ -1,18 +1,10 @@
 {
-	"name": "Friendly's Debug Plugin",
-	"version": "1.0",
-	"dependencies": [],
-	"requiredDependencies": [
-		"prettyui"
-	],
-	"requiredPermissions": [],
-	"optionalPermissions": [
-		"httpAccess"
-	],
-	"remoteID": 100000,
-	"remoteVersionID": 10000,
-	"remoteSourceHash": "Invalid",
-	"urls": {
-		"localhost": "http://localhost:8080/"
-	}
+  "name": "Friendly's Debug Plugin",
+  "version": "0.1.0",
+  "contactEmailAddress": "friendliness@friendliness.me",
+  "requiredDependencies": {
+    "prettyui": 6398181
+  },
+  "hasSettingsIcon": true,
+  "hasRibbonIcon": true
 }

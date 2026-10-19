@@ -1,0 +1,104 @@
+name: Publish release to mod.io
+
+on:
+  release:
+    # Publishing an existing draft for an existing tag emits edited in Forgejo.
+    types: [published, edited]
+
+concurrency:
+  group: modio-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ forgejo.event.release.draft == false }}
+    runs-on: docker
+    container:
+      image: alpine:3.22
+    defaults:
+      run:
+        shell: sh -eu {0}
+    env:
+      FORGE_URL: ${{ forgejo.server_url }}
+      REPOSITORY: ${{ forgejo.repository }}
+      TAG: ${{ forgejo.event.release.tag_name }}
+      MOD_NAME: ${{ forgejo.event.repository.name }}
+      MODIO_GAME_ID: ${{ vars.MODIO_GAME_ID || '13295' }}
+      MODIO_MOD_ID: ${{ vars.MODIO_MOD_ID }}
+    steps:
+      - name: Install tools
+        run: apk add --no-cache curl jq unzip
+
+      - name: Download and verify release assets
+        env:
+          FORGE_TOKEN: ${{ secrets.FORGE_TOKEN }}
+        run: |
+          : "${FORGE_TOKEN:?Set the FORGE_TOKEN repository secret}"
+          printf '%s' "$TAG" | jq -Rse 'test("^[A-Za-z0-9._-]+$")' > /dev/null
+          API="${FORGE_URL%/}/api/v1/repos/$REPOSITORY"
+          AUTH="Authorization: token $FORGE_TOKEN"
+          if ! curl --fail-with-body -sS -H "$AUTH" "$API/releases/tags/$TAG" > release.json; then
+            echo 'Forgejo release lookup failed:' >&2
+            cat release.json >&2
+            exit 1
+          fi
+          jq -e '.draft == false' release.json > /dev/null
+          jq -r '.body // ""' release.json > changelog.md
+          ZIP="$MOD_NAME-$TAG.zip"
+          for FILE in "$ZIP" SHA256SUMS; do
+            URL=$(jq -er --arg name "$FILE" '[.assets[] | select(.name == $name)] | if length == 1 then .[0].browser_download_url else error("Expected exactly one asset: " + $name) end' release.json)
+            curl --fail-with-body -sSL -H "$AUTH" -o "$FILE" "$URL"
+          done
+          # Require the checksum to describe exactly the intended archive.
+          EXPECTED=$(jq -Rser --arg zip "$ZIP" 'capture("^(?<hash>[a-f0-9]{64})  " + ($zip | gsub("[.]"; "\\.")) + "\n?$").hash' SHA256SUMS)
+          printf '%s  %s\n' "$EXPECTED" "$ZIP" | sha256sum -c -
+          unzip -p "$ZIP" plugin.json > plugin.json
+          jq -e --arg v "$TAG" '.version == $v and (.requiredDependencies.prettyui != null)' plugin.json > /dev/null
+
+      - name: Upload to mod.io
+        env:
+          MODIO_TOKEN: ${{ secrets.MODIO_TOKEN }}
+        run: |
+          : "${MODIO_TOKEN:?Set the MODIO_TOKEN repository secret}"
+          : "${MODIO_MOD_ID:?Set MODIO_MOD_ID to the Entity Highlighter mod.io ID}"
+          printf '%s\n%s\n' "$MODIO_GAME_ID" "$MODIO_MOD_ID" | jq -Rse 'split("\n")[:-1] | all(test("^[0-9]+$"))' > /dev/null
+          ZIP="$MOD_NAME-$TAG.zip"
+          BASE="https://g-$MODIO_GAME_ID.modapi.io/v1/games/$MODIO_GAME_ID/mods/$MODIO_MOD_ID/files"
+          HASH=$(md5sum "$ZIP" | cut -d' ' -f1)
+          # Release edits can trigger this job again. Skip an identical upload.
+          if ! curl --fail-with-body -sS --get "$BASE" -H "Authorization: Bearer $MODIO_TOKEN" \
+            --data-urlencode "version=$TAG" --data-urlencode '_limit=100' > modio-files.json; then
+            echo 'mod.io file-list request failed:' >&2
+            cat modio-files.json >&2
+            exit 1
+          fi
+          jq -e '.data | type == "array"' modio-files.json > /dev/null
+          if jq -e --arg version "$TAG" --arg hash "$HASH" \
+            'any(.data[]; .version == $version and .filehash.md5 == $hash)' modio-files.json > /dev/null; then
+            echo "Version $TAG with this ZIP is already on mod.io; skipping upload"
+            exit 0
+          fi
+          if ! STATUS=$(curl -sS -X POST "$BASE" -H "Authorization: Bearer $MODIO_TOKEN" -H 'Accept: application/json' \
+            -D modio-upload-headers.txt -w '%{http_code}' \
+            -F "filedata=@$ZIP" \
+            -F "filehash=$HASH" \
+            --form-string "version=$TAG" \
+            --form-string 'active=true' \
+            --form-string 'platforms[]=source' \
+            --form-string 'platforms[]=windows' \
+            --form-string 'platforms[]=mac' \
+            --form-string 'platforms[]=linux' \
+            --form-string "changelog=$(cat changelog.md)" -o modio-response.json) \
+            || [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 300 ]; then
+            echo "mod.io file upload failed: HTTP $STATUS (game $MODIO_GAME_ID, mod $MODIO_MOD_ID)" >&2
+            # Print diagnostic headers only; omit cookies and other sensitive headers.
+            grep -Ei '^(HTTP/|server:|content-type:|content-length:|cf-ray:|cf-mitigated:|x-request-id:|retry-after:|www-authenticate:)' modio-upload-headers.txt >&2 || true
+            echo "Response body size: $(wc -c < modio-response.json) bytes" >&2
+            if [ -s modio-response.json ]; then
+              jq . modio-response.json >&2 || cat modio-response.json >&2
+            else
+              echo 'The server returned an empty response body' >&2
+            fi
+            exit 1
+          fi
+          jq . modio-response.json
