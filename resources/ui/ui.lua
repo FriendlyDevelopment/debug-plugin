@@ -1,12 +1,9 @@
 local M = {}
 
 local events = require("resources/events/events")
-local displayedSpriteID = nil
 local prayerListenerEnabled = false
 local specialAttackListenerEnabled = false
 local hitAllListenerEnabled = false
-
-local spritePreview = nil
 
 local itemToGive = PersistentDB:GetString("giveItemId") or ""
 local itemAmount = PersistentDB:GetInt("giveItemAmount") or 1
@@ -149,20 +146,22 @@ local debugItems = {
 
   {
     build = function(page)
-      page:AddSimpleButton("Test Sprite", function()
-        if spritePreview then spritePreview.hidden = not spritePreview.hidden end
-      end)
+      local spritePreview
 
-      -- Keep in mind TRAIL_REWARD interface and TRAIL_REWARD__CURRENT_VALUE component, for clue value
       page:AddTextField({
-        inline = true,
         width = 140,
         placeholder = "Sprite ID or name",
         onChange = function(_, _, content)
-          displayedSpriteID = resolveSpriteId(content)
-          if spritePreview and displayedSpriteID then spritePreview.spriteID = displayedSpriteID end
+          local spriteID = resolveSpriteId(content)
+          if spritePreview then
+            spritePreview.root.hidden = spriteID == nil
+            if spriteID then spritePreview:SetSprite(spriteID) end
+          end
         end,
       })
+
+      spritePreview = page:AddSprite(-1, { inline = true, width = 64, height = 64 })
+      spritePreview.root.hidden = true
     end,
   },
 
@@ -487,17 +486,6 @@ local miscCommands = {
 }
 
 local CreateUI = function(layerEvent, Events)
-  local gameArea = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
-  if not gameArea then
-    log("Can't find game area")
-    return
-  end
-
-  spritePreview = ui.Sprite.new(gameArea)
-  spritePreview:SetPos(0, 0)
-  spritePreview:SetSize(64, 64)
-  spritePreview.hidden = true
-
   local settingsBox = prettyui.SimpleView.new(layerEvent.component, {
     width = 0,
     height = 0,
@@ -558,10 +546,6 @@ local CreateUI = function(layerEvent, Events)
       if settingsBox then
         settingsBox:Destroy()
         settingsBox = nil
-      end
-      if spritePreview then
-        spritePreview:Destroy()
-        spritePreview = nil
       end
     end,
   }
