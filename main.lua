@@ -1,4 +1,8 @@
+local Console = require("resources/console")
+Console.Install()
+local consoleUI = require("resources/ui/console")
 log("Loading plugin...")
+consoleUI.Start()
 
 local events = require("resources/events/events")
 
@@ -17,9 +21,11 @@ Event.SettingsLayerReady.Subscribe("debugPluginSettingsEvent", createUI)
 Event.ContentLayerReady.Subscribe("debugPluginContentEvent", createUI)
 
 function PluginShutdown()
+  consoleUI.Destroy()
   Event.SettingsLayerReady.Unsubscribe("debugPluginSettingsEvent")
   Event.ContentLayerReady.Unsubscribe("debugPluginContentEvent")
   events.UnsubscribeAll()
   if ui then ui:Destroy() end
   ui = nil
+  Console.Uninstall()
 end

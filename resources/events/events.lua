@@ -1,4 +1,6 @@
 local M = {}
+-- We override the current log functionality
+local log = require("resources/console").Log
 local Settings = require("resources/settings")
 
 local chatMessageListener = function(event)

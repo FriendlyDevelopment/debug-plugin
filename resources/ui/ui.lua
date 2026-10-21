@@ -1,4 +1,6 @@
 local M = {}
+local log = require("resources/console").Log
+local consoleUI = require("resources/ui/console")
 
 local Settings = require("resources/settings")
 local events = require("resources/events/events")
@@ -491,6 +493,7 @@ local CreateUI = function(layerEvent, Events)
   local miscPage = tabs:GetPage(5)
 
   -- Page: General
+  generalPage:AddSimpleButton("Open Live Logs", consoleUI.Open)
   generalPage:AddTitle("Event Listeners")
   local listenerControls = {}
   generalPage:AddSimpleButton("Toggle All Listeners", function()
@@ -511,6 +514,7 @@ local CreateUI = function(layerEvent, Events)
   end
 
   -- Page: Debug
+  debugPage:AddSimpleButton("Open Live Logs", consoleUI.Open)
   for _, item in ipairs(debugItems) do
     item.build(debugPage)
   end
