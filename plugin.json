@@ -1,6 +1,6 @@
 {
   "name": "Friendly's Debug Plugin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "contactEmailAddress": "friendliness@friendliness.me",
   "requiredDependencies": {
     "prettyui": 6398181
