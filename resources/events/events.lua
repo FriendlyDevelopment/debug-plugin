@@ -1,4 +1,5 @@
 local M = {}
+local Settings = require("resources/settings")
 
 local chatMessageListener = function(event)
   log("Received chat message: %s", event.chatMessage)
@@ -273,19 +274,21 @@ local eventListeners = {
   -- },
   {
     name = "PrayerHandler",
+    category = "combat",
     event = Event.VarTransmit,
     handler = prayerHandler,
   },
   {
     name = "SpecialAttackHandler",
+    category = "combat",
     event = Event.VarTransmit,
     handler = specialAttackHandler,
   },
   {
     name = "HitAllHandler",
+    category = "combat",
     event = Event.Logic,
     handler = hitAllHandler,
-    defaultActive = false,
   },
   {
     name = "ObjStackEntityAdded",
@@ -325,10 +328,10 @@ local activeListeners = {}
 local listenerSettingsKeyPrefix = "eventListener."
 
 local function isListenerEnabled(def)
-  local savedState = PersistentDB:GetBool(listenerSettingsKeyPrefix .. def.name)
+  local savedState = Settings:GetBool(listenerSettingsKeyPrefix .. def.name)
   if savedState ~= nil then return savedState end
 
-  return def.defaultActive ~= false
+  return false
 end
 
 M.SubscribeAll = function()
@@ -361,32 +364,33 @@ M.ToggleListener = function(name, active)
         def.event.Unsubscribe(name)
         activeListeners[name] = nil
       end
-      PersistentDB:SetBool(listenerSettingsKeyPrefix .. name, active)
+      Settings:SetBool(listenerSettingsKeyPrefix .. name, active)
       return
     end
   end
 end
 
-M.ToggleAllListeners = function()
+M.ToggleAllListeners = function(category)
+  local names = M.GetListenerNames(category)
   local enable = false
-  for _, def in ipairs(eventListeners) do
-    if not M.IsListenerActive(def.name) then
+  for _, name in ipairs(names) do
+    if not M.IsListenerActive(name) then
       enable = true
       break
     end
   end
 
-  for _, def in ipairs(eventListeners) do
-    M.ToggleListener(def.name, enable)
+  for _, name in ipairs(names) do
+    M.ToggleListener(name, enable)
   end
 end
 
 M.IsListenerActive = function(name) return activeListeners[name] ~= nil end
 
-M.GetListenerNames = function()
+M.GetListenerNames = function(category)
   local names = {}
   for _, def in ipairs(eventListeners) do
-    names[#names + 1] = def.name
+    if (def.category or "general") == (category or "general") then names[#names + 1] = def.name end
   end
   return names
 end

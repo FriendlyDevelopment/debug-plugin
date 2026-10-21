@@ -1,19 +1,17 @@
 local M = {}
 
+local Settings = require("resources/settings")
 local events = require("resources/events/events")
-local prayerListenerEnabled = false
-local specialAttackListenerEnabled = false
-local hitAllListenerEnabled = false
 
-local itemToGive = PersistentDB:GetString("giveItemId") or ""
-local itemAmount = PersistentDB:GetInt("giveItemAmount") or 1
+local itemToGive = Settings:GetString("giveItemId") or ""
+local itemAmount = Settings:GetInt("giveItemAmount") or 1
 
-local addObjId = PersistentDB:GetString("addObjId") or ""
-local addObjAmount = PersistentDB:GetInt("addObjAmount") or 1
-local interfaceIdToTest = PersistentDB:Get("interfaceIdToTest") or ""
-local componentIdToTest = PersistentDB:Get("componentIdToTest") or ""
+local addObjId = Settings:GetString("addObjId") or ""
+local addObjAmount = Settings:GetInt("addObjAmount") or 1
+local interfaceIdToTest = Settings:Get("interfaceIdToTest") or ""
+local componentIdToTest = Settings:Get("componentIdToTest") or ""
 
-local invTypeToTest = PersistentDB:Get("invTypeToTest") or ""
+local invTypeToTest = Settings:Get("invTypeToTest") or ""
 
 --- Resolves a component from either a numeric ID or string to an id and enum name
 ---@param compId string
@@ -176,7 +174,7 @@ local debugItems = {
         text = itemToGive,
         onChange = function(_, _, content)
           itemToGive = content
-          PersistentDB:SetString("giveItemId", content)
+          Settings:SetString("giveItemId", content)
         end,
       })
 
@@ -189,7 +187,7 @@ local debugItems = {
         maxLength = 2147483647,
         onChange = function(_, _, content)
           itemAmount = content == "" and 0 or (tonumber(content) or 0)
-          PersistentDB:SetInt("giveItemAmount", itemAmount)
+          Settings:SetInt("giveItemAmount", itemAmount)
         end,
       })
     end,
@@ -233,7 +231,7 @@ local debugItems = {
         text = tostring(interfaceIdToTest),
         onChange = function(_, _, content)
           interfaceIdToTest = content
-          PersistentDB:Set("interfaceIdToTest", content)
+          Settings:Set("interfaceIdToTest", content)
         end,
       })
     end,
@@ -298,7 +296,7 @@ local debugItems = {
         text = tostring(componentIdToTest),
         onChange = function(_, _, content)
           componentIdToTest = content
-          PersistentDB:Set("componentIdToTest", content)
+          Settings:Set("componentIdToTest", content)
         end,
       })
     end,
@@ -366,7 +364,7 @@ local debugItems = {
         text = invTypeToTest,
         onChange = function(_, _, content)
           invTypeToTest = content
-          PersistentDB:Set("invTypeToTest", content)
+          Settings:Set("invTypeToTest", content)
         end,
       })
     end,
@@ -382,7 +380,7 @@ local debugItems = {
         text = addObjId,
         onChange = function(_, _, content)
           addObjId = content
-          PersistentDB:SetString("addObjId", content)
+          Settings:SetString("addObjId", content)
         end,
       })
 
@@ -395,7 +393,7 @@ local debugItems = {
         maxLength = 2147483647,
         onChange = function(_, _, content)
           addObjAmount = content == "" and 0 or (tonumber(content) or 0)
-          PersistentDB:SetInt("addObjAmount", addObjAmount)
+          Settings:SetInt("addObjAmount", addObjAmount)
         end,
       })
     end,
@@ -415,25 +413,19 @@ local combatItems = {
       })
 
       page:AddCheckboxButton({
-        { text = "Prayer Listener", value = "prayer", selected = prayerListenerEnabled },
+        { text = "Prayer Listener", value = "prayer", selected = events.IsListenerActive("PrayerHandler") },
       }, {
         inline = true,
-        onChange = function(_, _, _, selected)
-          prayerListenerEnabled = selected
-          events.ToggleListener("PrayerHandler", selected)
-        end,
+        onChange = function(_, _, _, selected) events.ToggleListener("PrayerHandler", selected) end,
       })
     end,
   },
   {
     build = function(page)
       page:AddCheckboxButton({
-        { text = "Hit All Listener", value = "hitAll", selected = hitAllListenerEnabled },
+        { text = "Hit All Listener", value = "hitAll", selected = events.IsListenerActive("HitAllHandler") },
       }, {
-        onChange = function(_, _, _, selected)
-          hitAllListenerEnabled = selected
-          events.ToggleListener("HitAllHandler", selected)
-        end,
+        onChange = function(_, _, _, selected) events.ToggleListener("HitAllHandler", selected) end,
       })
     end,
   },
@@ -444,13 +436,10 @@ local combatItems = {
         {
           text = "Special Attack Listener",
           value = "specialAttack",
-          selected = specialAttackListenerEnabled,
+          selected = events.IsListenerActive("SpecialAttackHandler"),
         },
       }, {
-        onChange = function(_, _, _, selected)
-          specialAttackListenerEnabled = selected
-          events.ToggleListener("SpecialAttackHandler", selected)
-        end,
+        onChange = function(_, _, _, selected) events.ToggleListener("SpecialAttackHandler", selected) end,
       })
     end,
   },
@@ -505,14 +494,14 @@ local CreateUI = function(layerEvent, Events)
   generalPage:AddTitle("Event Listeners")
   local listenerControls = {}
   generalPage:AddSimpleButton("Toggle All Listeners", function()
-    Events.ToggleAllListeners()
+    Events.ToggleAllListeners("general")
     for name, control in pairs(listenerControls) do
       control:SetSelected(name, Events.IsListenerActive(name), false)
     end
   end)
 
-  -- Adds all event listeners with toggles to enable or disable them
-  for _, name in ipairs(Events.GetListenerNames()) do
+  -- Only add general listeners to the general page
+  for _, name in ipairs(Events.GetListenerNames("general")) do
     local listenerName = name
     listenerControls[listenerName] = generalPage:AddCheckboxButton({
       { text = listenerName, value = listenerName, selected = Events.IsListenerActive(listenerName) },
