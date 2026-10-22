@@ -84,7 +84,6 @@ jobs:
             -F "filehash=$HASH" \
             --form-string "version=$TAG" \
             --form-string 'active=true' \
-            --form-string 'platforms[]=source' \
             --form-string 'platforms[]=windows' \
             --form-string 'platforms[]=mac' \
             --form-string 'platforms[]=linux' \
