@@ -445,6 +445,100 @@ local combatItems = {
       })
     end,
   },
+  {
+    build = function(page)
+      page:AddSimpleButton("Range Gear", function()
+        ExecuteConsoleCommand("!give MASTERWORK_RANGED_HEAD")
+        ExecuteConsoleCommand("!give MASTERWORK_RANGED_TORSO")
+        ExecuteConsoleCommand("!give MASTERWORK_RANGED_LEGS")
+        ExecuteConsoleCommand("!give MASTERWORK_RANGED_HANDS")
+        ExecuteConsoleCommand("!give MASTERWORK_RANGED_FEET")
+        ExecuteConsoleCommand("!give MASTERWORK_BOW")
+        ExecuteConsoleCommand("!give PERNIX_QUIVER")
+        ExecuteConsoleCommand("!give DINARROW_FUL 5000")
+        ExecuteConsoleCommand("!give EGWD_FUL_BOSS_FLAWLESS_CAPE")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET")
+        ExecuteConsoleCommand("!give REXKINGS_BERSERKER_RING")
+        ExecuteConsoleCommand("!give NATURE_BOSS_PRAYER_RESTORE_BOOK")
+
+        ExecuteConsoleCommand("!give VORKATH_TIER92_HEAD_NEW")
+        ExecuteConsoleCommand("!give VORKATH_TIER92_BODY_NEW")
+        ExecuteConsoleCommand("!give VORKATH_TIER92_LEGS_NEW")
+        ExecuteConsoleCommand("!give VORKATH_TIER92_GLOVES_NEW")
+        ExecuteConsoleCommand("!give VORKATH_TIER92_BOOTS_NEW")
+
+        ExecuteConsoleCommand("!give MASTERWORK_BOW")
+        ExecuteConsoleCommand("!give EGWD_ZAMORAK_BOSS_RANGED_WEAPON_NEW")
+        ExecuteConsoleCommand("!give DUNGEON_ULTHVEN_2H_RANGED")
+        ExecuteConsoleCommand("!give GWD2_SOLO_RANGED_WEAPON_NEW")
+        ExecuteConsoleCommand("!give NATURE_BOSS_CROSSBOW_NEW")
+        ExecuteConsoleCommand("!give NATURE_BOSS_CROSSBOW_OFFHAND_NEW")
+        ExecuteConsoleCommand("!give RANGED_DARKBOW_T90")
+      end)
+    end,
+  },
+  {
+    build = function(page)
+      page:AddSimpleButton("Necro Gear", function()
+        ExecuteConsole("!give RAND_NECRO_ARMGUARD_11")
+        ExecuteConsole("!give RAND_NECRO_LANTERN_11")
+        ExecuteConsole("!give NECRO_RASIAL_ARMGUARD_T95")
+        ExecuteConsole("!give NECRO_RASIAL_LANTERN_T95")
+        ExecuteConsole("!give NECRO_DEVOURER_ARMGUARD_T95")
+        ExecuteConsole("!give NECRO_UNDERWORLD_ARMGUARD_T90")
+        ExecuteConsole("!give NECRO_UNDERWORLD_LANTERN_T90")
+      end, { inline = true })
+    end,
+  },
+  {
+    build = function(page)
+      page:AddSimpleButton("Magic Gear", function()
+        ExecuteConsoleCommand("!give MASTERWORK_2H_STAFF")
+        ExecuteConsoleCommand("!give EGWD_JAS_BOSS_MAGIC_WEAPON_NEW")
+        ExecuteConsoleCommand("!give MAGIC_DEVOURER_WAND_T95")
+        ExecuteConsoleCommand("!give MAGIC_DEVOURER_ORB_T95")
+        ExecuteConsoleCommand("!give NEX2_MAGIC_WAND_NEW")
+        ExecuteConsoleCommand("!give NEX2_MAGIC_OFFHAND_NEW")
+        ExecuteConsoleCommand("!give GWD2_SOLO_MAGIC_WEAPON_NEW")
+      end, { inline = true })
+    end,
+  },
+  {
+    build = function(page)
+      page:AddSimpleButton("Melee Gear", function()
+        ExecuteConsoleCommand("!give MASTERWORK_2H_SWORD")
+        ExecuteConsoleCommand("!give EGWD_FUL_BOSS_MELEE_WEAPON_NEW")
+        ExecuteConsoleCommand("!give MELEE_DEVOURER_HALBERD_T95")
+        ExecuteConsoleCommand("!give EGWD_WEN_BOSS_MELEE_WEAPON_HM_NEW")
+        ExecuteConsoleCommand("!give EGWD_WEN_BOSS_MELEE_WEAPON_HM_O_NEW")
+        ExecuteConsoleCommand("!give GWD2_SOLO_MELEE_WEAPON_NEW")
+        ExecuteConsoleCommand("!give SB_MELEE_WEAPON_NEW")
+      end, { inline = true })
+    end,
+  },
+  {
+    build = function(page)
+      page:AddSimpleButton("EOFs", function()
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_RED_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_BLUE_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_YELLOW_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_GREEN_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_PURPLE_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_PINK_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_BLACK_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE_RED_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE_BLUE_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE_YELLOW_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE_GREEN_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE_PURPLE_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE_PINK_USED")
+        ExecuteConsoleCommand("!give ENCHANTED_ALCHEMICAL_HYDRIX_AMULET_ORNATE_BLACK_USED")
+        ExecuteConsoleCommand("!give ALCHEMICAL_HYDRIX_AMULET_ORNAMENT_KIT")
+      end)
+    end,
+  },
 }
 
 local teleportItems = {

@@ -1,6 +1,8 @@
 local Console = require("resources/console")
 local M = {}
 local UPDATE_EVENT = "debugPluginConsoleUpdate"
+local MAX_OUTPUT_LENGTH = 1100000
+local MAX_OUTPUT_LINES = 255
 local window, outputField
 local filter = ""
 local liveOutput = true
@@ -22,6 +24,18 @@ local function refresh(force)
 
   local lines = Console.GetEntries(filter)
   local text = table.concat(lines, "\n")
+  -- Keep the newest output before the widget applies its own text limits.
+  if #text > MAX_OUTPUT_LENGTH then
+    text = text:sub(-MAX_OUTPUT_LENGTH)
+    local firstNewline = text:find("\n", 1, true)
+    if firstNewline then text = text:sub(firstNewline + 1) end
+  end
+  local _, newlineCount = text:gsub("\n", "")
+  local start = 1
+  for _ = 1, newlineCount + 1 - MAX_OUTPUT_LINES do
+    start = text:find("\n", start, true) + 1
+  end
+  if start > 1 then text = text:sub(start) end
   outputField:SetText(text)
   Console.MarkClean()
 end
@@ -66,10 +80,10 @@ local function buildWindow(parent)
     widthAnchor = 1.0,
     height = -72,
     heightAnchor = 1.0,
-    maxLength = 1100000,
+    maxLength = MAX_OUTPUT_LENGTH,
     placeholder = "No output yet.",
   })
-  outputField.root.text.maxLines = 255
+  outputField.root.text.maxLines = MAX_OUTPUT_LINES
   outputField.root.text.alignVertical = ui.AlignMode.TOPLEFT
 end
 

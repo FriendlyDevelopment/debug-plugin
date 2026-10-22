@@ -1,25 +1,26 @@
 local M = {}
 -- We override the current log functionality
 local log = require("resources/console").Log
+local logEvent = require("resources/console").LogEvent
 local Settings = require("resources/settings")
 
 local chatMessageListener = function(event)
-  log("Received chat message: %s", event.chatMessage)
-  log("Chat type: %s", event.chatType)
+  logEvent("ChatMessage", {
+    { "message", event.chatMessage },
+    { "chatType", event.chatType },
+  })
   if event.chatType ~= ChatType.GENERAL then return end
 end
 
 local varTransmitHandler = function(event)
   if event.oldValue == event.newValue then return end
-  local outp = formatStr(
-    "Variable {} name {}, type: {},  changed from {} to {}",
-    event.var.id,
-    event.var.configName,
-    event.var.typeName,
-    event.oldValue,
-    event.newValue
-  )
-  log(outp)
+  logEvent("VarTransmit", {
+    { "id", event.var.id },
+    { "configName", event.var.configName },
+    { "varType", event.var.typeName },
+    { "oldValue", event.oldValue },
+    { "newValue", event.newValue },
+  })
 end
 
 local knownInterfaces = {}
@@ -32,7 +33,11 @@ local interfacePollHandler = function(event)
     if open ~= knownInterfaces[i] then
       local interfaceName = id.Interface.FromID(i)
       if interfaceName == nil then interfaceName = "Unknown" end
-      log(formatStr("{} interface {} ({})", open and "OPENED" or "CLOSED", i, tostring(interfaceName)))
+      logEvent("InterfacePoll", {
+        { "id", i },
+        { "name", tostring(interfaceName) },
+        { "open", open },
+      })
       knownInterfaces[i] = open
     end
   end
@@ -40,40 +45,45 @@ end
 
 local npcAddedHandler = function(event)
   if event.npcEntity.displayName == nil then return end
-  log(formatStr("NPC added: {} with id {} of type {}", event.npcEntity.displayName, event.npcEntity.configID, event.entityType))
+  logEvent("NPCAdded", {
+    { "name", event.npcEntity.displayName },
+    { "id", event.npcEntity.configID },
+    { "uid", event.npcEntity.uid },
+    { "entityType", event.entityType },
+  })
 end
 
 local npcRemovedHandler = function(event)
   if event.npcEntity.displayName == nil then return end
-  log(formatStr("NPC removed: {} with id {} of type {}", event.npcEntity.displayName, event.npcEntity.configID, event.entityType))
+  logEvent("NPCRemoved", {
+    { "name", event.npcEntity.displayName },
+    { "id", event.npcEntity.configID },
+    { "uid", event.npcEntity.uid },
+    { "entityType", event.entityType },
+  })
 end
 
 local locAddedHandler = function(event)
-  log(
-    formatStr(
-      "Location added: {} with ID {} at {}, {}, {} (shape {}, rotation {})",
-      event.config.name,
-      event.config.id,
-      event.coordGrid.x,
-      event.coordGrid.z,
-      event.coordGrid.level,
-      event.shapeType,
-      event.rotationType
-    )
-  )
+  logEvent("LocAdded", {
+    { "name", event.config.name },
+    { "configName", event.config.configName },
+    { "id", event.config.id },
+    { "x", event.coordGrid.x },
+    { "z", event.coordGrid.z },
+    { "level", event.coordGrid.level },
+    { "shapeType", event.shapeType },
+    { "rotationType", event.rotationType },
+  })
 end
 
 local locRemovedHandler = function(event)
-  log(
-    formatStr(
-      "Location removed at {}, {}, {} (shape {}, rotation {})",
-      event.coordGrid.x,
-      event.coordGrid.z,
-      event.coordGrid.level,
-      event.shapeType,
-      event.rotationType
-    )
-  )
+  logEvent("LocRemoved", {
+    { "x", event.coordGrid.x },
+    { "z", event.coordGrid.z },
+    { "level", event.coordGrid.level },
+    { "shapeType", event.shapeType },
+    { "rotationType", event.rotationType },
+  })
 end
 
 -- local lifePointsHandler = function(event)
@@ -106,44 +116,21 @@ local hitAllHandler = function(event)
   ExecuteConsoleCommand("!hitall")
 end
 
-local objStackAddedHandler = function(event)
-  log(
-    formatStr(
-      "Object stack added: entity type {}, object type {} with id {}, cost {}, count {}",
-      event.entityType,
-      event.objType.name,
-      event.objType.id,
-      event.objType.cost,
-      event.count
-    )
-  )
+local function logObjStack(eventType, event)
+  logEvent(eventType, {
+    { "entityType", event.entityType },
+    { "name", event.objType.name },
+    { "id", event.objType.id },
+    { "cost", event.objType.cost },
+    { "count", event.count },
+  })
 end
 
-local objStackRemovedHandler = function(event)
-  log(
-    formatStr(
-      "Object stack removed: entity type {}, object type {} with id {}, cost {}, count {}",
-      event.entityType,
-      event.objType.name,
-      event.objType.id,
-      event.objType.cost,
-      event.count
-    )
-  )
-end
+local objStackAddedHandler = function(event) logObjStack("ObjStackEntityAdded", event) end
 
-local objStackChangedHandler = function(event)
-  log(
-    formatStr(
-      "Object stack changed: entity type {}, object type {} with id {}, cost {}, count {}",
-      event.entityType,
-      event.objType.name,
-      event.objType.id,
-      event.objType.cost,
-      event.count
-    )
-  )
-end
+local objStackRemovedHandler = function(event) logObjStack("ObjStackEntityRemoved", event) end
+
+local objStackChangedHandler = function(event) logObjStack("ObjStackEntityChanged", event) end
 
 local lastHoveredObjID = nil
 
@@ -167,7 +154,10 @@ local hoveredObjHandler = function(event)
 
   if hoveredObj.id == lastHoveredObjID then return end
 
-  log(formatStr("Hovered obj: {} (ID {})", hoveredObj.name, hoveredObj.id))
+  logEvent("HoveredObj", {
+    { "name", hoveredObj.name },
+    { "id", hoveredObj.id },
+  })
   lastHoveredObjID = hoveredObj.id
 end
 
@@ -189,7 +179,11 @@ local hoveredNPCHandler = function(event)
 
   if hoveredNPC.uid == lastHoveredNPCUID then return end
 
-  log(formatStr("Hovered NPC: {} (ID {}, UID {})", hoveredNPC.displayName, hoveredNPC.configID, hoveredNPC.uid))
+  logEvent("HoveredNPC", {
+    { "name", hoveredNPC.displayName },
+    { "id", hoveredNPC.configID },
+    { "uid", hoveredNPC.uid },
+  })
   lastHoveredNPCUID = hoveredNPC.uid
 end
 
@@ -212,16 +206,13 @@ local hoveredLocHandler = function(event)
   local locKey = formatStr("{}:{}:{}", hoveredLoc.config.id, hoveredLoc.coordGridX, hoveredLoc.coordGridZ)
   if locKey == lastHoveredLocKey then return end
 
-  log(
-    formatStr(
-      "Hovered location: {} ({}, ID {}) at {}, {}",
-      hoveredLoc.config.name,
-      hoveredLoc.config.configName,
-      hoveredLoc.config.id,
-      hoveredLoc.coordGridX,
-      hoveredLoc.coordGridZ
-    )
-  )
+  logEvent("HoveredLoc", {
+    { "name", hoveredLoc.config.name },
+    { "configName", hoveredLoc.config.configName },
+    { "id", hoveredLoc.config.id },
+    { "x", hoveredLoc.coordGridX },
+    { "z", hoveredLoc.coordGridZ },
+  })
   lastHoveredLocKey = locKey
 end
 

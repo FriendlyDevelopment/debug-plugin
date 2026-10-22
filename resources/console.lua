@@ -21,7 +21,7 @@ function M.Log(message, ...)
   nativeLog(message, ...)
   -- Select will return the number of arguments we passed
   if select("#", ...) > 0 then
-    local ok, formatted = string.format(tostring(message), ...)
+    local ok, formatted = pcall(string.format, tostring(message), ...)
     if ok then
       message = formatted
     else
@@ -33,6 +33,24 @@ function M.Log(message, ...)
     end
   end
   M.Append(message)
+end
+
+-- Ordered field pairs retain nil values and keep related fields together.
+function M.LogEvent(eventType, fields)
+  local parts = { "event=" .. string.format("%q", eventType) }
+  for _, field in ipairs(fields or {}) do
+    local value = field[2]
+    local valueType = type(value)
+    local text = tostring(value)
+    if valueType == "string" then
+      text = '"' .. value:gsub('[%c\\"]', function(character)
+        local escapes = { ['"'] = '\\"', ["\\"] = "\\\\", ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t" }
+        return escapes[character] or string.format("\\%03d", string.byte(character))
+      end) .. '"'
+    end
+    parts[#parts + 1] = field[1] .. "(" .. valueType .. ")=" .. text
+  end
+  M.Log(table.concat(parts, " | "))
 end
 
 function M.Print(...)
