@@ -88,7 +88,7 @@ function M.Open()
   end
 
   -- Only let the update callback use a fully constructed window.
-  local ok, err = buildWindow(parent)
+  local ok, err = pcall(buildWindow, parent)
   if not ok then
     destroyWindow()
     Console.Log("Could not create the live logs window: " .. tostring(err))
