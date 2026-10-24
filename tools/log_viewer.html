@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Debug Plugin Logs</title>
+  <style>
+    :root { color-scheme: dark; font: 15px system-ui, sans-serif; background: #15191e; color: #e6edf3; }
+    body { max-width: 1400px; margin: 2rem auto; padding: 0 1rem; }
+    header { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+    h1 { font-size: 1.5rem; margin-bottom: .5rem; }
+    a { color: #91c9ff; }
+    #status, #summary, .hint { color: #aab7c4; font-size: .85rem; overflow-wrap: anywhere; }
+    form { background: #20262e; border: 1px solid #35404d; border-radius: 8px; padding: 1rem; margin: 1.5rem 0 1rem; }
+    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .8rem; }
+    label { display: grid; gap: .35rem; font-size: .85rem; }
+    input, select, button { font: inherit; padding: .55rem; border-radius: 5px; border: 1px solid #495767; background: #15191e; color: inherit; min-width: 0; }
+    button { cursor: pointer; }
+    button[type=submit] { background: #265e91; }
+    #clear { border-color: #a35d5d; color: #ffbdbd; margin-left: auto; }
+    button:disabled { opacity: .5; cursor: default; }
+    .actions { display: flex; gap: .75rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th { text-align: left; color: #aab7c4; }
+    td, th { padding: .7rem; border-bottom: 1px solid #303a45; vertical-align: top; }
+    td:first-child { width: 5rem; color: #aab7c4; }
+    td:nth-child(2) { width: 12rem; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; margin: .4rem 0; }
+    details { margin-top: .5rem; }
+    summary { cursor: pointer; color: #aab7c4; }
+    #summary.error { color: #ffacac; }
+  </style>
+</head>
+<body>
+  <header><h1>Debug Plugin Logs</h1><a href="/docs">API docs</a></header>
+  <p id="status">Loading database status...</p>
+  <form id="filters">
+    <div class="filters">
+      <label>Event type<input name="event_type" list="event-types" placeholder="Any event"><datalist id="event-types"></datalist></label>
+      <label>Entity / var / item ID<input name="entity_id" placeholder="Event's id field"></label>
+      <label>Message contains<input name="q" placeholder="Search text"></label>
+      <label>Log-entry ID<input name="log_id" type="number" min="1" placeholder="Stored record number"></label>
+      <label>Source<select name="source"><option value="">All sources</option><option>event</option><option>log</option><option>print</option><option>console</option><option>legacy</option></select></label>
+      <label>Field equals<input name="field" list="field-names" placeholder="configName=PRAYER_POINTS_VAR"><datalist id="field-names"></datalist></label>
+    </div>
+    <div class="actions">
+      <button type="submit">Apply filters / Refresh</button>
+      <button type="reset">Reset</button>
+      <a id="export" href="/logs/export">Download matching logs</a>
+      <button type="button" id="clear">Clear all stored logs</button>
+    </div>
+    <p class="hint">Filters combine with AND. IDs and fields match exactly; text search ignores case. Older text-only logs are searchable by message or log-entry ID.</p>
+    <p class="hint">Clear all stored logs deletes this plugin's entire stored history, including logs outside the current filters. Settings are kept.</p>
+  </form>
+  <p id="summary" role="status"></p>
+  <table><thead><tr><th>Log ID</th><th>Event / source</th><th>Data</th></tr></thead><tbody id="entries"></tbody></table>
+  <div class="actions"><button id="more" disabled>Load more</button></div>
+  <script>
+    const form = document.querySelector('#filters');
+    const entries = document.querySelector('#entries');
+    const summary = document.querySelector('#summary');
+    const more = document.querySelector('#more');
+    const exportLink = document.querySelector('#export');
+    const clearButton = document.querySelector('#clear');
+    let activeParams = new URLSearchParams();
+    let nextAfter = null;
+    let count = 0;
+    let request = null;
+
+    async function getJSON(url, signal) {
+      const response = await fetch(url, { signal });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail));
+      }
+      return response.json();
+    }
+
+    function render(entry) {
+      const row = document.createElement('tr');
+      for (const text of [entry.id, entry.event_type || entry.source]) {
+        const cell = document.createElement('td');
+        cell.textContent = text;
+        row.append(cell);
+      }
+      const data = document.createElement('td');
+      if (Object.keys(entry.fields).length) {
+        const fields = document.createElement('pre');
+        fields.textContent = JSON.stringify(entry.fields, null, 2);
+        const details = document.createElement('details');
+        const label = document.createElement('summary');
+        label.textContent = 'Original message';
+        const message = document.createElement('pre');
+        message.textContent = entry.message;
+        details.append(label, message);
+        data.append(fields, details);
+      } else {
+        const message = document.createElement('pre');
+        message.textContent = entry.message;
+        data.append(message);
+      }
+      row.append(data);
+      entries.append(row);
+    }
+
+    async function load(reset) {
+      if (request) request.abort();
+      const controller = new AbortController();
+      request = controller;
+      if (reset) {
+        activeParams = new URLSearchParams();
+        for (const [key, value] of new FormData(form)) {
+          if (value !== '') activeParams.append(key, value);
+        }
+        history.replaceState(null, '', '?' + activeParams.toString());
+        exportLink.href = '/logs/export?' + activeParams.toString();
+        nextAfter = null;
+        count = 0;
+        entries.replaceChildren();
+      }
+      const params = new URLSearchParams(activeParams);
+      params.set('limit', '100');
+      if (nextAfter !== null) params.set('after', nextAfter);
+      more.disabled = true;
+      summary.className = '';
+      summary.textContent = 'Loading...';
+      try {
+        const page = await getJSON('/logs?' + params.toString(), controller.signal);
+        page.entries.forEach(render);
+        count += page.entries.length;
+        nextAfter = page.next_after;
+        more.disabled = nextAfter === null;
+        summary.textContent = count ? `${count} matching logs shown${nextAfter === null ? ' (all loaded)' : ''}.` : 'No matching logs. Reload the plugin to capture structured events, or check /status for the database selection.';
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          summary.className = 'error';
+          summary.textContent = error.message;
+          more.disabled = nextAfter === null;
+        }
+      }
+    }
+
+    async function refreshMetadata() {
+      try {
+        const status = await getJSON('/status');
+        document.querySelector('#status').textContent = `${status.plugin_id} | ${status.stored_logs} stored logs | ${status.database}`;
+        const options = await getJSON('/filters');
+        for (const [selector, values] of [['#event-types', options.event_types], ['#field-names', options.fields.map(name => name + '=')]]) {
+          const list = document.querySelector(selector);
+          list.replaceChildren();
+          for (const value of values) {
+            const option = document.createElement('option');
+            option.value = value;
+            list.append(option);
+          }
+        }
+      } catch (error) {
+        document.querySelector('#status').textContent = error.message;
+      }
+    }
+
+    const initial = new URLSearchParams(location.search);
+    for (const [key, value] of initial) {
+      const input = form.elements.namedItem(key);
+      if (input) input.value = value;
+    }
+    form.addEventListener('submit', event => { event.preventDefault(); load(true); refreshMetadata(); });
+    form.addEventListener('reset', () => { setTimeout(() => load(true), 0); });
+    more.addEventListener('click', () => load(false));
+    clearButton.addEventListener('click', async () => {
+      if (request) request.abort();
+      clearButton.disabled = true;
+      more.disabled = true;
+      summary.className = '';
+      summary.textContent = 'Clearing stored logs...';
+      try {
+        const response = await fetch('/logs', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Could not clear logs');
+        await load(true);
+        await refreshMetadata();
+        summary.textContent = `Deleted ${result.deleted} stored logs. ` + summary.textContent;
+      } catch (error) {
+        summary.className = 'error';
+        summary.textContent = error.message;
+        more.disabled = nextAfter === null;
+      } finally {
+        clearButton.disabled = false;
+      }
+    });
+    refreshMetadata();
+    load(true);
+  </script>
+</body>
+</html>

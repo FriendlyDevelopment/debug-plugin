@@ -32,10 +32,10 @@ Or if you prefer using regular python:
 python tools/log_server.py
 ```
 
-You can then navigate to [http://localhost:8080](http://localhost:8080) to view the logs, and [http://localhost:8080/docs](http://localhost:8080/docs) for the documentation of the API.
+You can then navigate to [http://localhost:8000](http://localhost:8000) to view the logs, and [http://localhost:8000/docs](http://localhost:8000/docs) for the documentation of the API.
 
 
 ### Disclaimer
 
-I did use AI to generate the webpage for the log server because that's not really the part of the debug menu I'm interested in.
+I did use AI to generate the webpage for the log server and the tests, because that's not really the part of the debug menu I'm interested in.
 It's a very minimalistic page but it works.
