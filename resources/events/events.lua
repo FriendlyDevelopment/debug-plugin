@@ -43,28 +43,46 @@ local interfacePollHandler = function(event)
   end
 end
 
-local npcAddedHandler = function(event)
-  if event.npcEntity.displayName == nil then return end
-  logEvent("NPCAdded", {
-    { "name", event.npcEntity.displayName },
-    { "id", event.npcEntity.configID },
-    { "uid", event.npcEntity.uid },
-    { "entityType", event.entityType },
-  })
+local function appendMultiVarFields(fields, multiConfig)
+  local multiVar = multiConfig and multiConfig.multiVar
+  fields[#fields + 1] = { "multiVarID", multiVar and multiVar.id }
+  fields[#fields + 1] = { "multiVarConfigName", multiVar and multiVar.configName }
 end
 
-local npcRemovedHandler = function(event)
+local function npcFields(npc)
+  local npcConfig = npc.config
+  local parentConfig = npc.parentConfig
+  local fields = {
+    { "name", npc.displayName },
+    { "id", npc.configID },
+    { "uid", npc.uid },
+    { "configName", npcConfig and npcConfig.configName },
+    { "isMultiNPC", npc.isMultiNPC },
+    { "parentConfigID", npc.parentConfigID },
+    { "parentConfigName", parentConfig and parentConfig.configName },
+  }
+  appendMultiVarFields(fields, parentConfig)
+  return fields
+end
+
+local function logNPC(eventType, event)
   if event.npcEntity.displayName == nil then return end
-  logEvent("NPCRemoved", {
-    { "name", event.npcEntity.displayName },
-    { "id", event.npcEntity.configID },
-    { "uid", event.npcEntity.uid },
-    { "entityType", event.entityType },
-  })
+  local fields = npcFields(event.npcEntity)
+  fields[#fields + 1] = { "entityType", event.entityType }
+  logEvent(eventType, fields)
+end
+
+local npcAddedHandler = function(event) logNPC("NPCAdded", event) end
+
+local npcRemovedHandler = function(event) logNPC("NPCRemoved", event) end
+
+local function appendLocMultiFields(fields, locConfig)
+  fields[#fields + 1] = { "isMultiLoc", locConfig.isMultiLoc }
+  appendMultiVarFields(fields, locConfig.isMultiLoc and locConfig or nil)
 end
 
 local locAddedHandler = function(event)
-  logEvent("LocAdded", {
+  local fields = {
     { "name", event.config.name },
     { "configName", event.config.configName },
     { "id", event.config.id },
@@ -73,7 +91,9 @@ local locAddedHandler = function(event)
     { "level", event.coordGrid.level },
     { "shapeType", event.shapeType },
     { "rotationType", event.rotationType },
-  })
+  }
+  appendLocMultiFields(fields, event.config)
+  logEvent("LocAdded", fields)
 end
 
 local locRemovedHandler = function(event)
@@ -161,7 +181,7 @@ local hoveredObjHandler = function(event)
   lastHoveredObjID = hoveredObj.id
 end
 
-local lastHoveredNPCUID = nil
+local lastHoveredNPCKey = nil
 
 local hoveredNPCHandler = function(event)
   local hoveredNPC
@@ -173,18 +193,15 @@ local hoveredNPCHandler = function(event)
   end
 
   if not hoveredNPC then
-    lastHoveredNPCUID = nil
+    lastHoveredNPCKey = nil
     return
   end
 
-  if hoveredNPC.uid == lastHoveredNPCUID then return end
+  local npcKey = formatStr("{}:{}:{}", hoveredNPC.uid, hoveredNPC.configID, hoveredNPC.parentConfigID)
+  if npcKey == lastHoveredNPCKey then return end
 
-  logEvent("HoveredNPC", {
-    { "name", hoveredNPC.displayName },
-    { "id", hoveredNPC.configID },
-    { "uid", hoveredNPC.uid },
-  })
-  lastHoveredNPCUID = hoveredNPC.uid
+  logEvent("HoveredNPC", npcFields(hoveredNPC))
+  lastHoveredNPCKey = npcKey
 end
 
 local lastHoveredLocKey = nil
@@ -206,13 +223,15 @@ local hoveredLocHandler = function(event)
   local locKey = formatStr("{}:{}:{}", hoveredLoc.config.id, hoveredLoc.coordGridX, hoveredLoc.coordGridZ)
   if locKey == lastHoveredLocKey then return end
 
-  logEvent("HoveredLoc", {
+  local fields = {
     { "name", hoveredLoc.config.name },
     { "configName", hoveredLoc.config.configName },
     { "id", hoveredLoc.config.id },
     { "x", hoveredLoc.coordGridX },
     { "z", hoveredLoc.coordGridZ },
-  })
+  }
+  appendLocMultiFields(fields, hoveredLoc.config)
+  logEvent("HoveredLoc", fields)
   lastHoveredLocKey = locKey
 end
 
