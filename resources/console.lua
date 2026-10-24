@@ -1,4 +1,5 @@
 local M = {}
+local LogStore = require("resources/log_store")
 
 local nativeLog = log
 local nativePrint = print
@@ -7,9 +8,16 @@ local MAX_ENTRIES = 500
 local MAX_ENTRY_LENGTH = 2000
 local entries = {}
 local dirty = true
+local persistenceWarningShown = false
 
-function M.Append(message)
+function M.Append(message, metadata)
   message = tostring(message)
+  local ok, err = pcall(LogStore.Append, message, metadata)
+  if not ok and not persistenceWarningShown then
+    persistenceWarningShown = true
+    -- Use the native logger to avoid recursively trying to persist this warning.
+    nativeLog("Could not persist console logs: " .. tostring(err))
+  end
   if #message > MAX_ENTRY_LENGTH then message = message:sub(1, MAX_ENTRY_LENGTH) .. " [truncated]" end
   if #entries == MAX_ENTRIES then table.remove(entries, 1) end
   entries[#entries + 1] = message
@@ -17,7 +25,7 @@ function M.Append(message)
 end
 
 -- Keep native console logging, but also put the text in the inputfield
-function M.Log(message, ...)
+local function writeLog(message, metadata, ...)
   nativeLog(message, ...)
   -- Select will return the number of arguments we passed
   if select("#", ...) > 0 then
@@ -32,16 +40,24 @@ function M.Log(message, ...)
       message = table.concat(parts, " ")
     end
   end
-  M.Append(message)
+  M.Append(message, metadata)
 end
+
+function M.Log(message, ...) writeLog(message, { source = "log" }, ...) end
 
 -- Ordered field pairs retain nil values and keep related fields together.
 function M.LogEvent(eventType, fields)
   local parts = { "event=" .. string.format("%q", eventType) }
+  local storedFields = {}
   for _, field in ipairs(fields or {}) do
     local value = field[2]
     local valueType = type(value)
     local text = tostring(value)
+    local storedValue = value
+    if valueType ~= "nil" and valueType ~= "string" and valueType ~= "number" and valueType ~= "boolean" then
+      storedValue = text
+    end
+    storedFields[#storedFields + 1] = { name = field[1], type = valueType, value = storedValue }
     if valueType == "string" then
       text = '"' .. value:gsub('[%c\\"]', function(character)
         local escapes = { ['"'] = '\\"', ["\\"] = "\\\\", ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t" }
@@ -50,7 +66,7 @@ function M.LogEvent(eventType, fields)
     end
     parts[#parts + 1] = field[1] .. "(" .. valueType .. ")=" .. text
   end
-  M.Log(table.concat(parts, " | "))
+  writeLog(table.concat(parts, " | "), { source = "event", event_type = eventType, fields = storedFields })
 end
 
 function M.Print(...)
@@ -59,7 +75,7 @@ function M.Print(...)
   for index = 1, select("#", ...) do
     parts[#parts + 1] = tostring(select(index, ...))
   end
-  M.Append(table.concat(parts, " "))
+  M.Append(table.concat(parts, " "), { source = "print" })
 end
 
 function M.Install()
