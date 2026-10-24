@@ -17,7 +17,6 @@
     input, select, button { font: inherit; padding: .55rem; border-radius: 5px; border: 1px solid #495767; background: #15191e; color: inherit; min-width: 0; }
     button { cursor: pointer; }
     button[type=submit] { background: #265e91; }
-    #clear { border-color: #a35d5d; color: #ffbdbd; margin-left: auto; }
     button:disabled { opacity: .5; cursor: default; }
     .actions { display: flex; gap: .75rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
     table { width: 100%; border-collapse: collapse; font-size: .9rem; }
@@ -47,10 +46,9 @@
       <button type="submit">Apply filters / Refresh</button>
       <button type="reset">Reset</button>
       <a id="export" href="/logs/export">Download matching logs</a>
-      <button type="button" id="clear">Clear all stored logs</button>
     </div>
     <p class="hint">Filters combine with AND. IDs and fields match exactly; text search ignores case. Older text-only logs are searchable by message or log-entry ID.</p>
-    <p class="hint">Clear all stored logs deletes this plugin's entire stored history, including logs outside the current filters. Settings are kept.</p>
+    <p class="hint">To delete stored log history, use Clear stored logs in the plugin's Live Logs window.</p>
   </form>
   <p id="summary" role="status"></p>
   <table><thead><tr><th>Log ID</th><th>Event / source</th><th>Data</th></tr></thead><tbody id="entries"></tbody></table>
@@ -61,7 +59,6 @@
     const summary = document.querySelector('#summary');
     const more = document.querySelector('#more');
     const exportLink = document.querySelector('#export');
-    const clearButton = document.querySelector('#clear');
     let activeParams = new URLSearchParams();
     let nextAfter = null;
     let count = 0;
@@ -167,27 +164,6 @@
     form.addEventListener('submit', event => { event.preventDefault(); load(true); refreshMetadata(); });
     form.addEventListener('reset', () => { setTimeout(() => load(true), 0); });
     more.addEventListener('click', () => load(false));
-    clearButton.addEventListener('click', async () => {
-      if (request) request.abort();
-      clearButton.disabled = true;
-      more.disabled = true;
-      summary.className = '';
-      summary.textContent = 'Clearing stored logs...';
-      try {
-        const response = await fetch('/logs', { method: 'DELETE' });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Could not clear logs');
-        await load(true);
-        await refreshMetadata();
-        summary.textContent = `Deleted ${result.deleted} stored logs. ` + summary.textContent;
-      } catch (error) {
-        summary.className = 'error';
-        summary.textContent = error.message;
-        more.disabled = nextAfter === null;
-      } finally {
-        clearButton.disabled = false;
-      }
-    });
     refreshMetadata();
     load(true);
   </script>

@@ -157,45 +157,23 @@ class LogServerTests(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertIn('name="entity_id"', response.text)
-        self.assertIn('id="clear"', response.text)
+        self.assertNotIn('id="clear"', response.text)
+        self.assertIn("plugin's Live Logs window", response.text)
 
-    def test_clear_only_deletes_selected_plugins_log_records(self):
-        with closing(sqlite3.connect(self.database)) as connection:
-            connection.execute(
-                'INSERT INTO DataStore VALUES (?, ?, 0, ?)',
-                (DEFAULT_PLUGIN_ID, "enabled", b"\x01"),
-            )
-            connection.commit()
+    def test_api_does_not_expose_deletion(self):
+        before = self.client.get("/logs").json()
         response = self.client.delete("/logs")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"deleted": 8})
-        self.assertEqual(self.client.get("/logs").json()["entries"], [])
-        self.assertEqual(self.client.get("/status").json()["stored_logs"], 0)
-        with closing(sqlite3.connect(self.database)) as connection:
-            rows = connection.execute('SELECT PluginID, Key FROM DataStore ORDER BY PluginID, Key').fetchall()
-        self.assertEqual(rows, [
-            (DEFAULT_PLUGIN_ID, "console:last_id"),
-            (DEFAULT_PLUGIN_ID, "enabled"),
-            ("another-plugin", f"{LOG_PREFIX}{1:019d}"),
-        ])
-        self.assertEqual(self.client.delete("/logs").json(), {"deleted": 0})
-
-    def test_logging_can_resume_after_clear_without_reusing_ids(self):
-        self.client.delete("/logs")
-        with closing(sqlite3.connect(self.database)) as connection:
-            connection.execute(
-                'INSERT INTO DataStore VALUES (?, ?, 3, ?)',
-                (DEFAULT_PLUGIN_ID, f"{LOG_PREFIX}{16:019d}", b"After clear\0"),
-            )
-            connection.commit()
-        entries = self.client.get("/logs?after=15").json()["entries"]
-        self.assertEqual([entry["id"] for entry in entries], [16])
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.client.get("/logs").json(), before)
+        schema = self.client.get("/openapi.json").json()
+        for path in schema["paths"].values():
+            self.assertNotIn("delete", path)
 
     def test_missing_database_returns_503_without_creating_file(self):
         missing = self.database.with_name("missing.db")
         with TestClient(create_app(missing)) as client:
             self.assertEqual(client.get("/logs").status_code, 503)
-            self.assertEqual(client.delete("/logs").status_code, 503)
+            self.assertEqual(client.delete("/logs").status_code, 405)
         self.assertFalse(missing.exists())
 
     def test_invalid_pagination_is_rejected(self):

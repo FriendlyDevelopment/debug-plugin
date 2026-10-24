@@ -21,4 +21,20 @@ function M.Append(message, metadata)
   if not PersistentDB:SetStructuredData(key, record) then error("Could not persist log " .. tostring(nextID)) end
 end
 
+function M.Clear()
+  local keys = {}
+  -- Finish iteration before deleting entries from the database.
+  PersistentDB:IterateEntries(function(key)
+    local suffix = key:sub(#LOG_PREFIX + 1)
+    if key:sub(1, #LOG_PREFIX) == LOG_PREFIX and #suffix == 19 and suffix:match("^%d+$") then
+      keys[#keys + 1] = key
+    end
+    return false
+  end)
+  for _, key in ipairs(keys) do
+    if not PersistentDB:Delete(key) then error("Could not delete persistent log " .. key) end
+  end
+  return #keys
+end
+
 return M

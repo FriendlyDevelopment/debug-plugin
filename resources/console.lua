@@ -98,6 +98,17 @@ function M.Clear()
   dirty = true
 end
 
+function M.ClearStoredLogs()
+  local ok, result = pcall(LogStore.Clear)
+  if not ok then
+    M.Log("Could not clear stored logs: " .. tostring(result))
+    return false
+  end
+  M.Clear()
+  nativeLog("Deleted " .. tostring(result) .. " stored logs.")
+  return true
+end
+
 function M.IsDirty() return dirty end
 
 function M.MarkClean() dirty = false end

@@ -3,6 +3,8 @@ local warnings = {}
 log = function(message) warnings[#warnings + 1] = message end
 local values = {}
 local failWrites = false
+local failDeletes = false
+local iterating = false
 PersistentDB = {
   GetInt = function(_, key) return values[key] end,
   SetInt = function(_, key, value)
@@ -13,6 +15,19 @@ PersistentDB = {
   SetStructuredData = function(_, key, value)
     if failWrites then return false end
     values[key] = value
+    return true
+  end,
+  IterateEntries = function(_, callback)
+    iterating = true
+    for key, value in pairs(values) do
+      if callback(key, value) then break end
+    end
+    iterating = false
+  end,
+  Delete = function(_, key)
+    assert(not iterating, "Deletion must happen after iteration finishes")
+    if failDeletes then return false end
+    values[key] = nil
     return true
   end,
 }
@@ -61,5 +76,26 @@ assert(eventRecord.fields[1].name == "id" and eventRecord.fields[1].value == 122
 assert(eventRecord.fields[2].value == 'Name with | separators and "quotes"')
 assert(eventRecord.fields[3].type == "boolean" and eventRecord.fields[3].value == false)
 assert(eventRecord.fields[4].type == "nil" and eventRecord.fields[4].value == nil)
+
+-- Clearing history must preserve settings and the sequence used by ongoing capture.
+values["eventListener.HoveredNPC"] = true
+values["console:log:not-a-log"] = "keep"
+values["console:log:123"] = "keep"
+assert(Console.ClearStoredLogs())
+assert(#Console.GetEntries() == 0)
+assert(values["console:last_id"] == 505)
+assert(values["eventListener.HoveredNPC"] == true)
+assert(values["console:log:not-a-log"] == "keep")
+assert(values["console:log:123"] == "keep")
+assert(values["console:log:0000000000000000001"] == nil)
+assert(values["console:log:0000000000000000505"] == nil)
+assert(Console.ClearStoredLogs()) -- Empty history is also a successful clear.
+Console.Append("after clear")
+assert(values["console:log:0000000000000000506"].message == "after clear")
+failDeletes = true
+assert(Console.ClearStoredLogs() == false)
+assert(values["console:log:0000000000000000506"].message == "after clear")
+assert(#Console.GetEntries() == 2) -- Preserve output and report the deletion failure.
+failDeletes = false
 Console.Uninstall()
 nativePrint("Console persistence tests passed")

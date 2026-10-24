@@ -51,7 +51,7 @@ local function buildWindow(parent)
     scrollable = false,
   })
 
-  window:AddSimpleButton("Clear", function()
+  window:AddSimpleButton("Clear display", function()
     Console.Clear()
     refresh(true)
   end)
@@ -73,12 +73,16 @@ local function buildWindow(parent)
       if selected then refresh(true) end
     end,
   })
+  window:AddSimpleButton("Clear stored logs", function()
+    Console.ClearStoredLogs()
+    refresh(true)
+  end, { tooltip = "Delete this plugin's stored log history and clear the display. Settings are kept." })
   outputField = window:AddTextField({
     x = 14,
-    y = 58,
+    y = 90,
     width = -28,
     widthAnchor = 1.0,
-    height = -72,
+    height = -104,
     heightAnchor = 1.0,
     maxLength = MAX_OUTPUT_LENGTH,
     placeholder = "No output yet.",

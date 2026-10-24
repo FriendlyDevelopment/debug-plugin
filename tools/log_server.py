@@ -1,4 +1,4 @@
-"""Browse, filter, export, and clear the debug plugin's PersistentDB logs."""
+"""Browse, filter, and export the debug plugin's PersistentDB logs."""
 
 import argparse
 import json
@@ -226,25 +226,6 @@ def create_app(
             entries=entries[:limit],
             next_after=entries[limit - 1].id if len(entries) > limit else None,
         )
-
-    @app.delete("/logs")
-    def clear_logs():
-        """Delete all stored logs for this plugin, preserving settings and the ID counter."""
-        try:
-            with closing(
-                sqlite3.connect(database_uri + "?mode=rw", uri=True, timeout=5)
-            ) as connection:
-                with connection:
-                    cursor = connection.execute(
-                        "DELETE FROM DataStore WHERE PluginID = ? AND Type IN (3, 4) AND Key GLOB ?",
-                        (plugin_id, LOG_PREFIX + "[0-9]" * 19),
-                    )
-                    deleted = cursor.rowcount
-            return {"deleted": deleted}
-        except sqlite3.Error as error:
-            raise HTTPException(
-                status_code=503, detail=f"Cannot clear log database: {error}"
-            ) from error
 
     @app.get("/logs/export", response_class=StreamingResponse)
     def export(filters: Annotated[LogFilters, Depends()]):
