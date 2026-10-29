@@ -4,6 +4,52 @@ local log = require("resources/console").Log
 local logEvent = require("resources/console").LogEvent
 local Settings = require("resources/settings")
 
+local inventoryFilter = Settings:GetString("eventInventory") or ""
+
+local function resolveInventoryID(value)
+  local numericID = tonumber(value)
+  if numericID then
+    if numericID >= 0 and numericID % 1 == 0 and numericID < math.huge then return numericID end
+    return nil
+  end
+  return id.Inv[value]
+end
+
+local inventoryID = inventoryFilter ~= "" and resolveInventoryID(inventoryFilter) or nil
+
+M.GetInventoryFilter = function() return inventoryFilter end
+
+M.SetInventoryFilter = function(value)
+  value = value:match("^%s*(.-)%s*$"):upper()
+  local resolvedID = value ~= "" and resolveInventoryID(value) or nil
+  if value ~= "" and not resolvedID then
+    log(formatStr("Inventory {} does not exist or is not a valid ID", value))
+    return false
+  end
+
+  inventoryFilter = value
+  inventoryID = resolvedID
+  Settings:SetString("eventInventory", value)
+  return true
+end
+
+local function logInventory(eventType, event)
+  if inventoryFilter ~= "" and event.inv.id ~= inventoryID then return end
+  local fields = {
+    { "id", event.inv.id },
+    { "configName", event.inv.configName },
+    { "size", event.inv.size },
+  }
+  if event.slotsUpdated then
+    local slots = {}
+    for _, slot in ipairs(event.slotsUpdated) do
+      slots[#slots + 1] = tostring(slot)
+    end
+    fields[#fields + 1] = { "slotsUpdated", table.concat(slots, ", ") }
+  end
+  logEvent(eventType, fields)
+end
+
 local chatMessageListener = function(event)
   logEvent("ChatMessage", {
     { "message", event.chatMessage },
@@ -333,6 +379,21 @@ local eventListeners = {
     name = "HoveredLoc",
     event = Event.MiniMenuReady,
     handler = hoveredLocHandler,
+  },
+  {
+    name = "InventoryAdded",
+    event = Event.InventoryAdded,
+    handler = function(event) logInventory("InventoryAdded", event) end,
+  },
+  {
+    name = "InventoryRemoved",
+    event = Event.InventoryRemoved,
+    handler = function(event) logInventory("InventoryRemoved", event) end,
+  },
+  {
+    name = "InventoryUpdated",
+    event = Event.InventoryUpdated,
+    handler = function(event) logInventory("InventoryUpdated", event) end,
   },
 }
 

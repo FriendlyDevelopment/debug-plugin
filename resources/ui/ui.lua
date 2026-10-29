@@ -14,6 +14,7 @@ local interfaceIdToTest = Settings:Get("interfaceIdToTest") or ""
 local componentIdToTest = Settings:Get("componentIdToTest") or ""
 
 local invTypeToTest = Settings:Get("invTypeToTest") or ""
+local inventoryToInspect = Settings:GetString("inventoryToInspect") or ""
 
 --- Resolves a component from either a numeric ID or string to an id and enum name
 ---@param compId string
@@ -336,6 +337,23 @@ local debugItems = {
   },
   {
     build = function(page)
+      local inventoryInput
+      page:AddSimpleButton("Set Inventory Filter", function()
+        if events.SetInventoryFilter(inventoryInput:GetText()) then
+          inventoryInput:SetText(events.GetInventoryFilter())
+          log("Inventory event filter: " .. (events.GetInventoryFilter() ~= "" and events.GetInventoryFilter() or "all inventories"))
+        end
+      end)
+      inventoryInput = page:AddTextField({
+        inline = true,
+        width = 200,
+        placeholder = "Inventory ID/name (empty = all)",
+        text = events.GetInventoryFilter(),
+      })
+    end,
+  },
+  {
+    build = function(page)
       local invTypeInput
       page:AddSimpleButton("Get InvType", function()
         local invTypeName = resolveEnumName(id.Inv, invTypeInput:GetText())
@@ -367,6 +385,64 @@ local debugItems = {
         onChange = function(_, _, content)
           invTypeToTest = content
           Settings:Set("invTypeToTest", content)
+        end,
+      })
+    end,
+  },
+  {
+    build = function(page)
+      local inventoryInput
+      page:AddSimpleButton("List Inventory Slots", function()
+        local input = inventoryInput:GetText():match("^%s*(.-)%s*$"):upper()
+        local inventoryName = resolveEnumName(id.Inv, input)
+        local invConfig = inventoryName and inventoryName ~= "" and config.Inv[inventoryName] or nil
+        if not invConfig then
+          log(formatStr("Inventory {} does not exist", input))
+          return
+        end
+
+        local inventories = Inventory.Find(invConfig.id)
+        if not inventories then
+          log(formatStr("Inventory {}: no live inventories found", inventoryName))
+          return
+        end
+
+        if inventories.slotCount ~= nil then inventories = { inventories } end
+        local found = false
+        for _, inventory in ipairs(inventories) do
+          found = true
+          if inventory.valid == false then
+            log(formatStr("Inventory {}: container {} is invalid", inventoryName, inventory.id))
+          else
+            log(formatStr("Inventory: ID {}, configName {}, slots {}, type {}", invConfig.id, invConfig.configName, inventory.slotCount))
+            for slotIndex, slot in pairs(inventory:GetSlots()) do
+              if slot and slot.obj then
+                log(
+                  formatStr(
+                    "Slot {}: ID {}, name {}, count {} type {}",
+                    slotIndex,
+                    slot.obj.id,
+                    slot.obj.name,
+                    slot.count,
+                    slot.obj.typeName
+                  )
+                )
+              else
+                log(formatStr("Slot {}: empty", slotIndex))
+              end
+            end
+          end
+        end
+        if not found then log(formatStr("Inventory {}: no live inventories found", inventoryName)) end
+      end)
+      inventoryInput = page:AddTextField({
+        inline = true,
+        width = 200,
+        placeholder = "Inventory name or ID",
+        text = inventoryToInspect,
+        onChange = function(_, _, content)
+          inventoryToInspect = content
+          Settings:SetString("inventoryToInspect", content)
         end,
       })
     end,
