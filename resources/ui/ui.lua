@@ -650,14 +650,7 @@ local miscCommands = {
   { label = "Invent Machine Run", command = "!inventmachinerun" },
 }
 
-local CreateUI = function(layerEvent, Events)
-  local settingsBox = prettyui.SimpleView.new(layerEvent.component, {
-    width = 0,
-    height = 0,
-    widthAnchor = 1.0,
-    heightAnchor = 1.0,
-  })
-
+local CreateUI = function(settingsBox, Events)
   local tabs = settingsBox:AddTabs({ "General", "Debug", "Combat", "Teleports", "Misc" }, { height = -20, heightAnchor = 1.0 })
 
   local generalPage = tabs:GetPage(1)
