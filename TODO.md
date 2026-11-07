@@ -1,0 +1,1 @@
+- [ ] Add a way to exclude certain logs

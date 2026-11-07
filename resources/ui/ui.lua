@@ -411,11 +411,15 @@ local debugItems = {
         local found = false
         for _, inventory in ipairs(inventories) do
           found = true
-          if inventory.valid == false then
+          if inventory.isValid == false then
             log(formatStr("Inventory {}: container {} is invalid", inventoryName, inventory.id))
           else
-            log(formatStr("Inventory: ID {}, configName {}, slots {}, type {}", invConfig.id, invConfig.configName, inventory.slotCount))
-            for slotIndex, slot in pairs(inventory:GetSlots()) do
+            log(formatStr("Inventory: ID {}, configName {}, slots {}", invConfig.id, invConfig.configName, inventory.slotCount))
+            local slots = inventory:GetSlots()
+            if not slots then
+              log(formatStr("Inventory {}: container {} slot data is unavailable", inventoryName, inventory.id))
+            end
+            for slotIndex, slot in pairs(slots or {}) do
               if slot and slot.obj then
                 log(
                   formatStr(
