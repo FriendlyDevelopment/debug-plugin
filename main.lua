@@ -9,6 +9,7 @@ local events = require("resources/events/events")
 local uiMain = require("resources/ui/ui")
 events.SubscribeAll()
 local activeUI
+local contentView
 local contentWindowOpen = false
 local function destroyUI()
   contentWindowOpen = false
@@ -32,7 +33,7 @@ Event.SettingsLayerReady.Subscribe("debugPluginSettingsEvent", function(layerEve
   activeUI = uiMain.CreateUI(settingsBox, events)
 end)
 
-Event.ContentLayerReady.Subscribe("debugPluginContentEvent", function()
+local function toggleSettings()
   if contentWindowOpen then
     destroyUI()
     return
@@ -49,6 +50,17 @@ Event.ContentLayerReady.Subscribe("debugPluginContentEvent", function()
   })
   activeUI = uiMain.CreateUI(window, events)
   contentWindowOpen = true
+end
+
+Event.ContentLayerReady.Subscribe("debugPluginContentEvent", function(layerEvent)
+  if contentView then contentView:Destroy() end
+  contentView = prettyui.SimpleView.new(layerEvent.component, {
+    width = 0,
+    height = 0,
+    widthAnchor = 1.0,
+    heightAnchor = 1.0,
+  })
+  contentView:AddSimpleButton("Toggle settings", toggleSettings)
 end)
 
 function PluginShutdown()
@@ -58,4 +70,8 @@ function PluginShutdown()
   events.UnsubscribeAll()
   destroyUI()
   Console.Uninstall()
+  if contentView then
+    contentView:Destroy()
+    contentView = nil
+  end
 end
